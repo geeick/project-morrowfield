@@ -12,14 +12,18 @@ import {
   History,
   LockKeyhole,
   NotebookPen,
+  Plus,
   RotateCcw,
+  Save,
+  Trash2,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 type View = "task" | "website" | "casebook" | "report";
 type BookView = "current" | "history" | "notes";
 type TaskNumber = 1 | 2 | 3;
-type Notes = Record<TaskNumber, string>;
+type PostIt = { id: string; text: string; savedText: string };
+type Notes = Record<TaskNumber, PostIt[]>;
 
 const taskNumbers: TaskNumber[] = [1, 2, 3];
 
@@ -48,6 +52,11 @@ const tasks = {
       { id: "session", hint: "Sort the participant records by date and inspect the earliest session." },
       { id: "backup", hint: "Administrative pages often retain an earlier backup record." },
     ],
+    reportEvidence: [
+      { id: "session", supports: "Actual commencement date" },
+      { id: "official", supports: "Publicly claimed date" },
+      { id: "session", supports: "Record proving the discrepancy" },
+    ],
   },
   2: {
     label: "Investigation 02",
@@ -61,6 +70,11 @@ const tasks = {
       { id: "methodology-pdf", hint: "Methodology appendices often list people responsible for records." },
       { id: "voss-paper", hint: "Publication acknowledgements often expand initials into full names." },
     ],
+    reportEvidence: [
+      { id: "voss-paper", supports: "Contributor’s full name" },
+      { id: "methodology-pdf", supports: "Contributor’s project role" },
+      { id: "voss-paper", supports: "Document establishing the role" },
+    ],
   },
   3: {
     label: "Investigation 03",
@@ -73,6 +87,11 @@ const tasks = {
       { id: "closure-memo", hint: "Start by establishing when the collection officially closed." },
       { id: "access-log", hint: "Server logs can be sorted by their most recent activity." },
       { id: "export-file", hint: "The final access left an export entry in the server register." },
+    ],
+    reportEvidence: [
+      { id: "access-log", supports: "Account behind the final access" },
+      { id: "access-log", supports: "Date of the final access" },
+      { id: "export-file", supports: "File exported after closure" },
     ],
   },
 } as const;
@@ -89,7 +108,7 @@ export default function Home() {
   const [answers, setAnswers] = useState(["", "", ""]);
   const [feedback, setFeedback] = useState("");
   const [shownHints, setShownHints] = useState<string[]>([]);
-  const [notes, setNotes] = useState<Notes>({ 1: "", 2: "", 3: "" });
+  const [notes, setNotes] = useState<Notes>({ 1: [], 2: [], 3: [] });
   const [notesTask, setNotesTask] = useState<TaskNumber>(1);
   const [websiteOpened, setWebsiteOpened] = useState(false);
 
@@ -112,7 +131,13 @@ export default function Home() {
     })) as Record<TaskNumber, string[]>;
     setSolved(solvedState);
     setEvidenceByTask(grouped);
-    setNotes(JSON.parse(localStorage.getItem("morrowfield:notes") ?? '{"1":"","2":"","3":""}'));
+    const savedNotes = JSON.parse(localStorage.getItem("morrowfield:notes") ?? '{"1":[],"2":[],"3":[]}');
+    const normalizedNotes = Object.fromEntries(taskNumbers.map((number) => {
+      const source = savedNotes[number] ?? [];
+      if (typeof source === "string") return [number, source.trim() ? [{ id: `migrated-${number}`, text: source, savedText: source }] : []];
+      return [number, Array.isArray(source) ? source : []];
+    })) as Notes;
+    setNotes(normalizedNotes);
   };
 
   useEffect(() => {
@@ -129,13 +154,23 @@ export default function Home() {
   const reset = () => {
     ["morrowfield:evidence", "morrowfield:notes", ...taskNumbers.flatMap((number) => [evidenceKey(number), solvedKey(number)])].forEach((key) => localStorage.removeItem(key));
     setStarted(false); setView("task"); setBookView("current"); setEvidenceByTask({ 1: [], 2: [], 3: [] });
-    setSolved({ 1: false, 2: false, 3: false }); setAnswers(["", "", ""]); setFeedback(""); setNotes({ 1: "", 2: "", 3: "" });
+    setSolved({ 1: false, 2: false, 3: false }); setAnswers(["", "", ""]); setFeedback(""); setNotes({ 1: [], 2: [], 3: [] });
   };
 
-  const saveNote = (taskNumber: TaskNumber, value: string) => {
-    const next = { ...notes, [taskNumber]: value };
-    setNotes(next); localStorage.setItem("morrowfield:notes", JSON.stringify(next));
+  const persistNotes = (next: Notes) => { setNotes(next); localStorage.setItem("morrowfield:notes", JSON.stringify(next)); };
+  const addPostIt = () => {
+    const note: PostIt = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, text: "", savedText: "" };
+    setNotes((current) => ({ ...current, [notesTask]: [...current[notesTask], note] }));
   };
+  const editPostIt = (id: string, text: string) => setNotes((current) => ({ ...current, [notesTask]: current[notesTask].map((note) => note.id === id ? { ...note, text } : note) }));
+  const savePostIt = (id: string) => setNotes((current) => {
+    const next = { ...current, [notesTask]: current[notesTask].map((note) => note.id === id ? { ...note, savedText: note.text } : note) };
+    localStorage.setItem("morrowfield:notes", JSON.stringify(next)); return next;
+  });
+  const deletePostIt = (id: string) => setNotes((current) => {
+    const next = { ...current, [notesTask]: current[notesTask].filter((note) => note.id !== id) };
+    localStorage.setItem("morrowfield:notes", JSON.stringify(next)); return next;
+  });
 
   const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
   const isDate = (value: string, month: string, day: string) => {
@@ -181,10 +216,10 @@ export default function Home() {
         {view === "casebook" && <div className="content casebook-page"><p className="label">Step 3 · Organize</p><h2>Investigation Casebook</h2><div className="book-tabs" role="tablist" aria-label="Casebook sections"><button className={bookView === "current" ? "active" : ""} onClick={() => setBookView("current")}><BookCheck/><span>Current findings</span><b>{currentEvidence.length}/{task.evidence.length}</b></button><button className={bookView === "history" ? "active" : ""} onClick={() => setBookView("history")}><History/><span>Evidence archive</span><b>{previousTasks.length}</b></button><button className={bookView === "notes" ? "active" : ""} onClick={() => setBookView("notes")}><NotebookPen/><span>Personal notes</span></button></div>
           {bookView === "current" && <section className="book-sheet"><div className="book-heading"><div><span>{task.label}</span><h3>{task.title}</h3></div><strong>{currentEvidence.length} of {task.evidence.length} records</strong></div><div className="evidence-list">{task.evidence.map((slot, index) => { const item = records[slot.id as keyof typeof records]; const captured = currentEvidence.includes(slot.id); const shown = shownHints.includes(slot.id); return <article key={slot.id} className={captured ? "collected" : ""}><span>EX-{String(index + 1).padStart(2, "0")}</span><div><h3>{captured ? item.title : `Evidence slot ${index + 1}`}</h3>{captured ? <><strong>{item.value}</strong><p>{item.source}</p></> : <p>Nothing has been recorded in this slot.</p>}{shown && <p className="evidence-hint">Hint: {slot.hint}</p>}<button className="hint-button" onClick={() => setShownHints((current) => current.includes(slot.id) ? current : [...current, slot.id])}>{shown ? "Hint shown" : "Show hint"}</button></div></article>; })}</div><button className="primary report-cta" disabled={currentEvidence.length < task.evidence.length} onClick={() => setView("report")}>Complete report</button></section>}
           {bookView === "history" && <section className="book-sheet"><div className="book-heading"><div><span>Preserved records</span><h3>Evidence archive</h3></div></div>{previousTasks.length === 0 ? <p className="empty">Accepted investigations will be stored here with all of their evidence.</p> : <div className="history-stack">{previousTasks.map((number) => <details key={number} open={number === previousTasks.at(-1)}><summary><span>{tasks[number].label}</span><strong>{tasks[number].title}</strong><b>{evidenceByTask[number].length}/{tasks[number].evidence.length}</b></summary><div className="archived-evidence">{tasks[number].evidence.map((slot) => { const item = records[slot.id as keyof typeof records]; return <article key={slot.id}><BookMarked/><div><strong>{item.title}</strong><span>{item.value}</span><small>{item.source}</small></div></article>; })}</div></details>)}</div>}</section>}
-          {bookView === "notes" && <section className="book-sheet notes-book"><div className="book-heading"><div><span>Saved on this device</span><h3>Personal investigation notes</h3></div><strong>Autosaved</strong></div><div className="note-task-tabs">{taskNumbers.map((number) => <button key={number} className={notesTask === number ? "active" : ""} disabled={number > activeTask} onClick={() => setNotesTask(number)}>Book {String(number).padStart(2, "0")}</button>)}</div><label><span>{tasks[notesTask].label} notes</span><textarea value={notes[notesTask]} onChange={(event) => saveNote(notesTask, event.target.value)} placeholder="Write names, dates, contradictions, page locations, or theories here…"/></label></section>}
+          {bookView === "notes" && <section className="book-sheet notes-book"><div className="book-heading"><div><span>Saved on this device</span><h3>Personal investigation notes</h3></div><button className="add-postit" onClick={addPostIt}><Plus/> Add Post-it</button></div><div className="note-task-tabs">{taskNumbers.map((number) => <button key={number} className={notesTask === number ? "active" : ""} disabled={number > activeTask} onClick={() => setNotesTask(number)}>Book {String(number).padStart(2, "0")}</button>)}</div><div className="postit-board">{notes[notesTask].length === 0 ? <p className="empty">No notes yet. Add a Post-it for a date, theory, contradiction, or page location.</p> : notes[notesTask].map((note) => <article className="postit" key={note.id}><textarea value={note.text} onChange={(event) => editPostIt(note.id, event.target.value)} placeholder="Write a note…"/><div><span>{note.text === note.savedText ? "Saved" : "Unsaved changes"}</span><button onClick={() => savePostIt(note.id)} aria-label="Save Post-it"><Save/> Save</button><button className="delete-postit" onClick={() => deletePostIt(note.id)} aria-label="Delete Post-it"><Trash2/> Delete</button></div></article>)}</div></section>}
         </div>}
 
-        {view === "report" && <div className="content"><p className="label">Step 4 · {task.label}</p><h2>{task.reportTitle}</h2><p>Use the evidence and notes in your casebook to complete the report. Answers are written, not multiple choice.</p><div className="report-evidence-summary"><span>Evidence recorded</span><strong>{currentEvidence.length}/{task.evidence.length}</strong><button onClick={() => { setBookView("current"); setView("casebook"); }}>Review casebook</button></div><div className="finding-fields">{task.fields.map((field, index) => <label key={field}><span>{field}</span><input value={answers[index]} onChange={(event) => updateAnswer(index, event.target.value)} placeholder="Enter your finding" autoComplete="off"/></label>)}</div>{feedback && <p className="feedback">{feedback}</p>}<button className="primary" disabled={isComplete} onClick={submit}>{isComplete ? "Finding accepted" : "Submit report"}</button></div>}
+        {view === "report" && <div className="content"><p className="label">Step 4 · {task.label}</p><h2>{task.reportTitle}</h2><p>Use the collected records below to write the report. Each answer shows the evidence that supports it; your Post-its remain available in the casebook.</p><div className="report-evidence-summary"><span>Evidence recorded</span><strong>{currentEvidence.length}/{task.evidence.length}</strong><button onClick={() => { setBookView("current"); setView("casebook"); }}>Review casebook</button></div>{activeTask === 3 && <div className="report-context"><strong>Why this matters</strong><span>The collection was formally closed on October 02, 2003. The records below establish what happened afterward.</span></div>}<div className="finding-fields">{task.fields.map((field, index) => { const link = task.reportEvidence[index]; const item = records[link.id as keyof typeof records]; const captured = currentEvidence.includes(link.id); return <label key={field}><span>{field}</span><div className={captured ? "report-record" : "report-record missing"}><small>{link.supports}</small><strong>{captured ? item.value : "Evidence not yet recorded"}</strong><em>{captured ? item.source : "Return to the recovered website to find this record."}</em></div><input value={answers[index]} onChange={(event) => updateAnswer(index, event.target.value)} placeholder="Enter your finding" autoComplete="off"/></label>; })}</div>{feedback && <p className="feedback">{feedback}</p>}<button className="primary" disabled={isComplete} onClick={submit}>{isComplete ? "Finding accepted" : "Submit report"}</button></div>}
       </section>
       <aside className="status"><p>Current assignment</p><strong>0{activeTask}</strong><span className="status-title">{isComplete ? "Case complete" : task.title}</span><Progress value={(currentEvidence.length / task.evidence.length) * 100}/><dl><div><dt>Evidence</dt><dd>{currentEvidence.length} / {task.evidence.length}</dd></div><div><dt>Report</dt><dd>{solved[activeTask] ? "Accepted" : "Not submitted"}</dd></div><div><dt>Recovery</dt><dd>{recovery}%</dd></div></dl><button className="status-report" onClick={() => setView("report")}>Open report</button></aside>
     </section>
