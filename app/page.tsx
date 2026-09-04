@@ -164,9 +164,6 @@ export default function Home() {
 
   return <main className="workstation">
     <header className="system-bar"><div><Archive size={18}/><strong>Bellwether Digital Archives</strong><span>Case 27-041</span></div><button onClick={reset}><RotateCcw size={15}/> Restart</button></header>
-    <div className="workflow-strip" aria-label="Investigation workflow">
-      {[{ id: "task", n: "1", label: "Read task" }, { id: "website", n: "2", label: "Investigate website" }, { id: "casebook", n: "3", label: "Record evidence" }, { id: "report", n: "4", label: "Complete report" }].map((step) => <button key={step.id} className={view === step.id ? "active" : ""} onClick={() => setView(step.id as View)}><b>{step.n}</b><span>{step.label}</span></button>)}
-    </div>
     <section className="desktop redesigned">
       <nav className="rail" aria-label="Case applications">
         <button className={view === "task" ? "active" : ""} onClick={() => setView("task")}><BookOpen/><span>Task</span></button>
