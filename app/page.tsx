@@ -21,11 +21,11 @@ import { Progress } from "@/components/ui/progress";
 
 type View = "task" | "website" | "casebook" | "report";
 type BookView = "current" | "history" | "notes";
-type TaskNumber = 1 | 2 | 3 | 4;
+type TaskNumber = 1 | 2 | 3 | 4 | 5;
 type PostIt = { id: string; text: string; savedText: string };
 type Notes = Record<TaskNumber, PostIt[]>;
 
-const taskNumbers: TaskNumber[] = [1, 2, 3, 4];
+const taskNumbers: TaskNumber[] = [1, 2, 3, 4, 5];
 
 const records = {
   official: { title: "Official commencement date", value: "September 18, 2003", source: "Project homepage" },
@@ -39,6 +39,10 @@ const records = {
   "export-file": { title: "Post-closure export", value: "participant-index-03.zip", source: "Server export register" },
   "materials-rule": { title: "Materials control rule", value: "No additions were permitted after commencement.", source: "Study Methodology" },
   "packet-b-revision": { title: "Packet B revision record", value: "Revised September 22, 2003", source: "Study Materials · Packet B" },
+  "memory-16g": { title: "Unsupported place memory", value: "Participant described the town as familiar and recalled a grocery storefront not present in the constructed archive.", source: "Participant Log 16-G" },
+  "memory-19d": { title: "Claimed visit to Morrowfield", value: "Participant reported a vivid memory of visiting the town square, then noted that the memory may have come from repeated exposure.", source: "Participant Log 19-D" },
+  "memory-23f": { title: "Unsupported sensory memory", value: "Participant described hearing a factory whistle near the river despite no audio material being used in the study.", source: "Participant Log 23-F" },
+  "memory-27a": { title: "Personal childhood memory", value: "Participant described the harvest festival as a personal childhood memory before correcting the statement when prompted.", source: "Participant Log 27-A" },
 } as const;
 
 const tasks = {
@@ -93,14 +97,33 @@ const tasks = {
       { id: "packet-b-revision", hint: "One listed study packet carries a revision date worth comparing with the participant timeline." },
     ],
   },
+  5: {
+    label: "Investigation 05",
+    title: "Trace the false-memory pattern",
+    brief: "Several participant sessions suggest that Morrowfield stopped being remembered merely as study material. Determine whether the records show participants treating the constructed town as part of their own experience.",
+    required: "Preserve the participant records that show the clearest progression from invented details to autobiographical memory.",
+    reportTitle: "Document the autobiographical contamination",
+    fields: [
+      "What record shows a participant remembering a place that was never in the archive?",
+      "What record shows a participant remembering having visited Morrowfield?",
+      "What record shows a sensory memory unsupported by the study materials?",
+      "What record most clearly turns Morrowfield into a personal childhood memory?",
+    ],
+    evidence: [
+      { id: "memory-16g", hint: "Some early interviews contain details that do not exist in the constructed archive." },
+      { id: "memory-19d", hint: "Look for a participant who describes being physically present in Morrowfield." },
+      { id: "memory-23f", hint: "One participant remembers a sense the study materials never supplied." },
+      { id: "memory-27a", hint: "The strongest example explicitly frames a Morrowfield event as part of the participant’s own past." },
+    ],
+  },
 } as const;
 
 const evidenceKey = (task: TaskNumber) => `morrowfield:evidence-${String(task).padStart(2, "0")}`;
 const solvedKey = (task: TaskNumber) => `morrowfield:solved-${String(task).padStart(2, "0")}`;
 
-const emptyEvidence = (): Record<TaskNumber, string[]> => ({ 1: [], 2: [], 3: [], 4: [] });
-const emptySolved = (): Record<TaskNumber, boolean> => ({ 1: false, 2: false, 3: false, 4: false });
-const emptyNotes = (): Notes => ({ 1: [], 2: [], 3: [], 4: [] });
+const emptyEvidence = (): Record<TaskNumber, string[]> => ({ 1: [], 2: [], 3: [], 4: [], 5: [] });
+const emptySolved = (): Record<TaskNumber, boolean> => ({ 1: false, 2: false, 3: false, 4: false, 5: false });
+const emptyNotes = (): Notes => ({ 1: [], 2: [], 3: [], 4: [], 5: [] });
 
 export default function Home() {
   const [started, setStarted] = useState(false);
@@ -115,10 +138,10 @@ export default function Home() {
   const [notesTask, setNotesTask] = useState<TaskNumber>(1);
   const [websiteOpened, setWebsiteOpened] = useState(false);
 
-  const activeTask: TaskNumber = !solved[1] ? 1 : !solved[2] ? 2 : !solved[3] ? 3 : 4;
+  const activeTask: TaskNumber = !solved[1] ? 1 : !solved[2] ? 2 : !solved[3] ? 3 : !solved[4] ? 4 : 5;
   const task = tasks[activeTask];
   const currentEvidence = evidenceByTask[activeTask];
-  const isComplete = solved[4];
+  const isComplete = solved[5];
 
   const sync = () => {
     const solvedState = Object.fromEntries(taskNumbers.map((number) => [number, localStorage.getItem(solvedKey(number)) === "true"])) as Record<TaskNumber, boolean>;
@@ -134,7 +157,7 @@ export default function Home() {
     })) as Record<TaskNumber, string[]>;
     setSolved(solvedState);
     setEvidenceByTask(grouped);
-    const savedNotes = JSON.parse(localStorage.getItem("morrowfield:notes") ?? '{"1":[],"2":[],"3":[],"4":[]}');
+    const savedNotes = JSON.parse(localStorage.getItem("morrowfield:notes") ?? '{"1":[],"2":[],"3":[],"4":[],"5":[]}');
     const normalizedNotes = Object.fromEntries(taskNumbers.map((number) => {
       const source = savedNotes[number] ?? [];
       if (typeof source === "string") return [number, source.trim() ? [{ id: `migrated-${number}`, text: source, savedText: source }] : []];
@@ -210,7 +233,7 @@ export default function Home() {
   };
 
   const previousTasks = useMemo(() => taskNumbers.filter((number) => solved[number]), [solved]);
-  const recovery = isComplete ? 55 : solved[3] ? 46 : solved[2] ? 34 : solved[1] ? 24 : 14;
+  const recovery = isComplete ? 68 : solved[4] ? 58 : solved[3] ? 46 : solved[2] ? 34 : solved[1] ? 24 : 14;
 
   if (!started) return <main className="boot"><section className="boot-card"><div className="seal"><Archive /></div><p className="eyebrow">Bellwether University Archives</p><h1>The Morrowfield Collection</h1><p>Accession review 27-041. Investigate the recovered website, preserve relevant evidence, and complete each accession report.</p><button className="primary" onClick={() => setStarted(true)}>Open case file</button><small>Authorized archival workstation · Case 27-041</small></section></main>;
 
@@ -226,7 +249,7 @@ export default function Home() {
       <section className="window">
         <div className="window-title"><span>{view === "task" ? "Current Assignment" : view === "website" ? "Recovered Website" : view === "casebook" ? "Investigation Casebook" : "Accession Report"}</span><i>□ □ ×</i></div>
 
-        {view === "task" && <div className="content task-page"><p className="label">{isComplete ? "Current case status" : task.label}</p><h2>{isComplete ? "All available reports accepted" : task.title}</h2>{isComplete ? <><p>Four investigations have been preserved in the accession record. Your earlier evidence and notes remain available in the casebook.</p><button className="secondary-action" onClick={() => { setBookView("history"); setView("casebook"); }}>Review completed case</button></> : <><p>{task.brief}</p><div className="assignment-card"><div><span>Objective</span><p>{task.required}</p></div><div><span>What you will submit</span><strong>{task.fields.length} written {task.fields.length === 1 ? "answer" : "answers"} supported by {task.evidence.length} relevant {task.evidence.length === 1 ? "record" : "records"}</strong></div></div><div className="next-step"><span>Next</span><p>Search the recovered Project Morrowfield website and build a supported conclusion from what you find.</p><button className="primary" onClick={() => setView("website")}>Go to recovered website</button></div></>}</div>}
+        {view === "task" && <div className="content task-page"><p className="label">{isComplete ? "Current case status" : task.label}</p><h2>{isComplete ? "All available reports accepted" : task.title}</h2>{isComplete ? <><p>Five investigations have been preserved in the accession record. Your earlier evidence and notes remain available in the casebook.</p><button className="secondary-action" onClick={() => { setBookView("history"); setView("casebook"); }}>Review completed case</button></> : <><p>{task.brief}</p><div className="assignment-card"><div><span>Objective</span><p>{task.required}</p></div><div><span>What you will submit</span><strong>{task.fields.length} written {task.fields.length === 1 ? "answer" : "answers"} supported by {task.evidence.length} relevant {task.evidence.length === 1 ? "record" : "records"}</strong></div></div><div className="next-step"><span>Next</span><p>Search the recovered Project Morrowfield website and build a supported conclusion from what you find.</p><button className="primary" onClick={() => setView("website")}>Go to recovered website</button></div></>}</div>}
 
         {view === "website" && <div className="content external-archive"><p className="label">Investigate</p><h2>Search Project Morrowfield</h2><p>The information needed for your current report is somewhere in the recovered university website. Relevant text and document links can be clicked to preserve them in your casebook.</p><div className="external-file"><FolderOpen/><div><strong>morrowfield.bellwether.edu</strong><span>Recovered snapshot · opens in a separate tab</span></div><a className="primary" href="/archive" target="_blank" rel="noopener" onClick={() => setWebsiteOpened(true)}>Open website <ExternalLink size={16}/></a></div><div className="workflow-help"><BookMarked/><div><strong>Found something useful?</strong><p>Click a relevant fact on the recovered website to preserve it in Current Findings. You can keep your own theories and page references in Personal Notes.</p></div><button className="secondary-action" onClick={() => setView("casebook")}>{websiteOpened ? "Open casebook" : "View casebook"}</button></div></div>}
 
