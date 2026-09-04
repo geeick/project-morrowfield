@@ -44,54 +44,39 @@ const tasks = {
     label: "Investigation 01",
     title: "Establish the project’s commencement date",
     brief: "The recovered Project Morrowfield records contain conflicting dates. Determine when participant activity actually began.",
-    required: "Your report must identify the actual commencement date, the date claimed publicly, and the record proving the conflict.",
-    reportTitle: "Document the date discrepancy",
-    fields: ["When did participant activity actually begin?", "What date did the public website claim?", "Which record proves the contradiction?"],
+    required: "Your report must record the public commencement date, the earliest participant session date, and the last verified backup date.",
+    reportTitle: "Record the conflicting project dates",
+    fields: ["What commencement date is claimed on the public project homepage?", "What is the date of the earliest participant session?", "What is the date of the last verified backup?"],
     evidence: [
       { id: "official", hint: "The public project homepage includes a commencement date." },
       { id: "session", hint: "Sort the participant records by date and inspect the earliest session." },
       { id: "backup", hint: "Administrative pages often retain an earlier backup record." },
-    ],
-    reportEvidence: [
-      { id: "session", supports: "Actual commencement date" },
-      { id: "official", supports: "Publicly claimed date" },
-      { id: "session", supports: "Record proving the discrepancy" },
     ],
   },
   2: {
     label: "Investigation 02",
     title: "Identify the unlisted contributor",
     brief: "The public team page names four researchers, but technical records point to another person who maintained the collection.",
-    required: "Your report must give the contributor’s full name, their role, and the document that establishes that role.",
-    reportTitle: "Identify the missing contributor",
-    fields: ["Who was the unlisted contributor?", "What was their role on the project?", "Which document identifies their full role?"],
+    required: "Your report must record the log preparer, the role in the methodology appendix, and the full name and role given in the Voss paper.",
+    reportTitle: "Reconcile the contributor records",
+    fields: ["Who is listed as the preparer of Participant Log 01-A?", "What role does the methodology appendix assign to E. Harrow?", "How does the Voss paper identify the contributor by full name and role?"],
     evidence: [
       { id: "harrow-log", hint: "The earliest participant record has a preparer, not just a date." },
       { id: "methodology-pdf", hint: "Methodology appendices often list people responsible for records." },
       { id: "voss-paper", hint: "Publication acknowledgements often expand initials into full names." },
-    ],
-    reportEvidence: [
-      { id: "voss-paper", supports: "Contributor’s full name" },
-      { id: "methodology-pdf", supports: "Contributor’s project role" },
-      { id: "voss-paper", supports: "Document establishing the role" },
     ],
   },
   3: {
     label: "Investigation 03",
     title: "Identify the final post-closure access",
     brief: "Project Morrowfield was formally closed, yet the recovered server retains a later activity trail.",
-    required: "Your report must identify who made the final access, when it occurred, and which file was exported.",
+    required: "Your report must record the formal closure date, the account and date of the final authenticated access, and the exported file.",
     reportTitle: "Document the post-closure access",
-    fields: ["Who made the final access?", "When did the final access occur?", "Which file was exported?"],
+    fields: ["When was Project Morrowfield formally closed?", "What account made the final authenticated access, and on what date?", "Which file was exported during that final access?"],
     evidence: [
       { id: "closure-memo", hint: "Start by establishing when the collection officially closed." },
       { id: "access-log", hint: "Server logs can be sorted by their most recent activity." },
       { id: "export-file", hint: "The final access left an export entry in the server register." },
-    ],
-    reportEvidence: [
-      { id: "access-log", supports: "Account behind the final access" },
-      { id: "access-log", supports: "Date of the final access" },
-      { id: "export-file", supports: "File exported after closure" },
     ],
   },
 } as const;
@@ -157,7 +142,6 @@ export default function Home() {
     setSolved({ 1: false, 2: false, 3: false }); setAnswers(["", "", ""]); setFeedback(""); setNotes({ 1: [], 2: [], 3: [] });
   };
 
-  const persistNotes = (next: Notes) => { setNotes(next); localStorage.setItem("morrowfield:notes", JSON.stringify(next)); };
   const addPostIt = () => {
     const note: PostIt = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, text: "", savedText: "" };
     setNotes((current) => ({ ...current, [notesTask]: [...current[notesTask], note] }));
@@ -184,9 +168,9 @@ export default function Home() {
     if (answers.some((answer) => !answer.trim())) { setFeedback("Complete all three report fields before submitting."); return; }
     const normalized = answers.map(normalize);
     let accepted = false;
-    if (activeTask === 1) accepted = isDate(answers[0], "september", "12") && isDate(answers[1], "september", "18") && (normalized[2].includes("participantlog") || normalized[2].includes("sessionlog") || normalized[2].includes("01a"));
-    if (activeTask === 2) accepted = normalized[0].includes("eleanorharrow") && (normalized[1].includes("archiv") || normalized[1].includes("record")) && (normalized[2].includes("voss") || normalized[2].includes("constructedenvironments"));
-    if (activeTask === 3) accepted = (normalized[0].includes("elianvoss") || normalized[0] === "voss") && isDate(answers[1], "october", "11") && normalized[2].includes("participantindex03zip");
+    if (activeTask === 1) accepted = isDate(answers[0], "september", "18") && isDate(answers[1], "september", "12") && isDate(answers[2], "september", "04");
+    if (activeTask === 2) accepted = normalized[0].includes("harrow") && ((normalized[1].includes("record") && normalized[1].includes("contract")) || normalized[1].includes("recordscontractor")) && normalized[2].includes("eleanorharrow") && normalized[2].includes("archiv");
+    if (activeTask === 3) accepted = isDate(answers[0], "october", "02") && normalized[1].includes("evoss") && isDate(answers[1], "october", "11") && normalized[2].includes("participantindex03zip");
     if (!accepted) { setFeedback("The report does not match the records currently in your casebook. Recheck the evidence and your notes."); return; }
     localStorage.setItem(solvedKey(activeTask), "true");
     setSolved((current) => ({ ...current, [activeTask]: true })); setFeedback(""); setView("task");
@@ -219,7 +203,7 @@ export default function Home() {
           {bookView === "notes" && <section className="book-sheet notes-book"><div className="book-heading"><div><span>Saved on this device</span><h3>Personal investigation notes</h3></div><button className="add-postit" onClick={addPostIt}><Plus/> Add Post-it</button></div><div className="note-task-tabs">{taskNumbers.map((number) => <button key={number} className={notesTask === number ? "active" : ""} disabled={number > activeTask} onClick={() => setNotesTask(number)}>Book {String(number).padStart(2, "0")}</button>)}</div><div className="postit-board">{notes[notesTask].length === 0 ? <p className="empty">No notes yet. Add a Post-it for a date, theory, contradiction, or page location.</p> : notes[notesTask].map((note) => <article className="postit" key={note.id}><textarea value={note.text} onChange={(event) => editPostIt(note.id, event.target.value)} placeholder="Write a note…"/><div><span>{note.text === note.savedText ? "Saved" : "Unsaved changes"}</span><button onClick={() => savePostIt(note.id)} aria-label="Save Post-it"><Save/> Save</button><button className="delete-postit" onClick={() => deletePostIt(note.id)} aria-label="Delete Post-it"><Trash2/> Delete</button></div></article>)}</div></section>}
         </div>}
 
-        {view === "report" && <div className="content"><p className="label">Step 4 · {task.label}</p><h2>{task.reportTitle}</h2><p>Use the collected records below to write the report. Each answer shows the evidence that supports it; your Post-its remain available in the casebook.</p><div className="report-evidence-summary"><span>Evidence recorded</span><strong>{currentEvidence.length}/{task.evidence.length}</strong><button onClick={() => { setBookView("current"); setView("casebook"); }}>Review casebook</button></div>{activeTask === 3 && <div className="report-context"><strong>Why this matters</strong><span>The collection was formally closed on October 02, 2003. The records below establish what happened afterward.</span></div>}<div className="finding-fields">{task.fields.map((field, index) => { const link = task.reportEvidence[index]; const item = records[link.id as keyof typeof records]; const captured = currentEvidence.includes(link.id); return <label key={field}><span>{field}</span><div className={captured ? "report-record" : "report-record missing"}><small>{link.supports}</small><strong>{captured ? item.value : "Evidence not yet recorded"}</strong><em>{captured ? item.source : "Return to the recovered website to find this record."}</em></div><input value={answers[index]} onChange={(event) => updateAnswer(index, event.target.value)} placeholder="Enter your finding" autoComplete="off"/></label>; })}</div>{feedback && <p className="feedback">{feedback}</p>}<button className="primary" disabled={isComplete} onClick={submit}>{isComplete ? "Finding accepted" : "Submit report"}</button></div>}
+        {view === "report" && <div className="content"><p className="label">Step 4 · {task.label}</p><h2>{task.reportTitle}</h2><p>Answer each question using the three records in your casebook. Your Post-its remain available there.</p><div className="report-evidence-summary"><span>Evidence recorded</span><strong>{currentEvidence.length}/{task.evidence.length}</strong><button onClick={() => { setBookView("current"); setView("casebook"); }}>Review casebook</button></div><div className="finding-fields">{task.fields.map((field, index) => <label key={field}><span>{field}</span><input value={answers[index]} onChange={(event) => updateAnswer(index, event.target.value)} placeholder="Enter your finding" autoComplete="off"/></label>)}</div>{feedback && <p className="feedback">{feedback}</p>}<button className="primary" disabled={isComplete} onClick={submit}>{isComplete ? "Finding accepted" : "Submit report"}</button></div>}
       </section>
       <aside className="status"><p>Current assignment</p><strong>0{activeTask}</strong><span className="status-title">{isComplete ? "Case complete" : task.title}</span><Progress value={(currentEvidence.length / task.evidence.length) * 100}/><dl><div><dt>Evidence</dt><dd>{currentEvidence.length} / {task.evidence.length}</dd></div><div><dt>Report</dt><dd>{solved[activeTask] ? "Accepted" : "Not submitted"}</dd></div><div><dt>Recovery</dt><dd>{recovery}%</dd></div></dl><button className="status-report" onClick={() => setView("report")}>Open report</button></aside>
     </section>
