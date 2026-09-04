@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./evidence-hover.css";
 
 export const metadata: Metadata = {
   title: "The Morrowfield Archive",
