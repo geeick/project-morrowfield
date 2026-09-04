@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Archive, BookOpen, ExternalLink, FileSearch, FolderOpen, LockKeyhole, RotateCcw } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type View = "brief" | "archive" | "evidence" | "report";
 
@@ -44,13 +43,47 @@ export default function Home() {
     setStarted(false); setView("brief"); setEvidence([]);
     setActual(""); setClaimed(""); setSupport(""); setFeedback(""); setSolved(false);
   };
+
+  const normalize = (value: string) =>
+    value.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const isSeptemberDate = (value: string, day: "12" | "18") => {
+    const answer = normalize(value);
+    return [
+      `september${day}2003`,
+      `sept${day}2003`,
+      `sep${day}2003`,
+      `september${day}`,
+      `sept${day}`,
+      `sep${day}`,
+      `09${day}2003`,
+      `9${day}2003`,
+      `09${day}03`,
+      `9${day}03`,
+    ].includes(answer);
+  };
+
+  const isSessionLog = (value: string) => {
+    const answer = normalize(value);
+    return (
+      answer.includes("sessionlog") ||
+      answer.includes("participantlog") ||
+      answer.includes("log01a") ||
+      answer.includes("session01a")
+    );
+  };
+
   const submit = () => {
-    if (actual === "sep12" && claimed === "sep18" && support === "session") {
+    if (
+      isSeptemberDate(actual, "12") &&
+      isSeptemberDate(claimed, "18") &&
+      isSessionLog(support)
+    ) {
       localStorage.setItem("morrowfield:solved-01", "true");
       setSolved(true); setFeedback(""); setView("archive");
     } else if (!actual || !claimed || !support) {
       setFeedback("Complete all three fields before submitting the report.");
-    } else if (support !== "session") {
+    } else if (!isSessionLog(support)) {
       setFeedback("That record does not establish when participant activity began.");
     } else {
       setFeedback("The evidence supports a contradiction, but one or both dates are incorrect.");
@@ -117,13 +150,20 @@ export default function Home() {
 
           {view==="report" && <div className="content">
             <p className="label">Accession report · Finding 01</p><h2>Document the discrepancy</h2>
-            <p>Construct a conclusion using records saved to your evidence file.</p>
-            <div className="finding"><span>Participant activity began on</span>
-              <Choice value={actual} set={setActual} placeholder="select date" options={[["sep04","September 04"],["sep12","September 12"],["sep18","September 18"]]}/>
-              <span>despite the public website claiming</span>
-              <Choice value={claimed} set={setClaimed} placeholder="select date" options={[["sep04","September 04"],["sep12","September 12"],["sep18","September 18"]]}/>
-              <span>. The strongest supporting record is</span>
-              <Choice value={support} set={setSupport} placeholder="select evidence" options={evidence.map(id=>[id,records[id as keyof typeof records].source])}/><span>.</span>
+            <p>Write the finding in your own words. Dates may be entered in any ordinary format.</p>
+            <div className="finding-fields">
+              <label>
+                <span>When did participant activity actually begin?</span>
+                <input value={actual} onChange={(event)=>setActual(event.target.value)} placeholder="Enter a date" autoComplete="off"/>
+              </label>
+              <label>
+                <span>What date did the public website claim?</span>
+                <input value={claimed} onChange={(event)=>setClaimed(event.target.value)} placeholder="Enter a date" autoComplete="off"/>
+              </label>
+              <label>
+                <span>Which record proves the contradiction?</span>
+                <input value={support} onChange={(event)=>setSupport(event.target.value)} placeholder="Enter the record name" autoComplete="off"/>
+              </label>
             </div>
             {feedback && <p className="feedback">{feedback}</p>}
             <button className="primary" disabled={solved} onClick={submit}>{solved?"Finding accepted":"Submit finding"}</button>
@@ -136,8 +176,4 @@ export default function Home() {
       </section>
     </main>
   );
-}
-
-function Choice({value,set,placeholder,options}:{value:string;set:(v:string)=>void;placeholder:string;options:string[][]}) {
-  return <Select value={value} onValueChange={set}><SelectTrigger><SelectValue placeholder={placeholder}/></SelectTrigger><SelectContent>{options.map(([id,label])=><SelectItem key={id} value={id}>{label}</SelectItem>)}</SelectContent></Select>;
 }
