@@ -1,0 +1,10 @@
+.assignment-card > div:first-child p {
+  display: none;
+}
+
+.assignment-card > div:first-child::after {
+  content: "Build a supported conclusion from the recovered archive. Find three independent records that establish the answer.";
+  display: block;
+  color: #e0e3dc;
+  line-height: 1.6;
+}
