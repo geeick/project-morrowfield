@@ -3,10 +3,21 @@
 import { useEffect, useMemo, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
-type Page = "home" | "method" | "participants" | "notice" | "team" | "materials" | "publications" | "systems";
-type TaskNumber = 1 | 2 | 3 | 4 | 5;
+type Page = "home" | "method" | "participants" | "notice" | "team" | "materials" | "publications" | "systems" | "ethics" | "memos";
+type TaskNumber = 1 | 2 | 3 | 4 | 5 | 6;
 
-const labels: Record<Page, string> = { home: "Project Home", method: "Methodology", participants: "Participant Logs", notice: "Collection Status", team: "Research Team", materials: "Study Materials", publications: "Publications", systems: "Server Records" };
+const labels: Record<Page, string> = {
+  home: "Project Home",
+  method: "Methodology",
+  participants: "Participant Logs",
+  notice: "Collection Status",
+  team: "Research Team",
+  materials: "Study Materials",
+  publications: "Publications",
+  systems: "Server Records",
+  ethics: "Ethics Review",
+  memos: "Internal Memos",
+};
 const evidenceKey = (task: TaskNumber) => `morrowfield:evidence-${String(task).padStart(2, "0")}`;
 const solvedKey = (task: TaskNumber) => `morrowfield:solved-${String(task).padStart(2, "0")}`;
 
@@ -47,6 +58,15 @@ const serverLogs = [
   ["September 18, 2003", "jreed", "index.html", "publish"], ["September 19, 2003", "nbell", "session-21-a.log", "upload"], ["September 22, 2003", "jreed", "map-register.dat", "read"], ["September 25, 2003", "nbell", "consent-index.csv", "read"], ["September 28, 2003", "evoss", "report-draft-04.doc", "upload"], ["October 01, 2003", "jreed", "materials-checksum.txt", "read"], ["October 02, 2003", "system", "collection.lock", "write"], ["October 03, 2003", "mcalder", "termination-notice.txt", "read"], ["October 06, 2003", "system", "backup-rotation.log", "write"], ["October 11, 2003", "evoss", "participant-index-03.zip", "export"],
 ] as const;
 
+const memoIndex = [
+  { id: "JR-03", date: "September 20, 2003", from: "J. Reed", subject: "Map coding discrepancy", body: "Two street-map responses used an obsolete landmark code. Coding sheet corrected; participant source files unchanged." },
+  { id: "NB-05", date: "September 24, 2003", from: "N. Bell", subject: "Scheduling backlog", body: "Three follow-up sessions moved to afternoon blocks because the laboratory room was unavailable." },
+  { id: "NB-07", date: "September 29, 2003", from: "N. Bell", subject: "Participant incident summary", body: "Four autobiographical-attribution incidents documented. Pattern now spans interview, sensory, and childhood-memory statements." },
+  { id: "EV-11", date: "October 01, 2003", from: "E. Voss", subject: "Draft report circulation", body: "Working draft circulated internally. Statistical appendix remains incomplete pending final coding review." },
+  { id: "MC-14", date: "October 02, 2003", from: "M. Calder", subject: "Continuation authorization", body: "Dr. Miriam Calder · Immediate suspension · October 02, 2003" },
+  { id: "AR-02", date: "October 04, 2003", from: "Archives", subject: "Box transfer", body: "Paper consent forms transferred to locked departmental storage under standard records procedure." },
+] as const;
+
 export default function RecoveredWebsite() {
   const [page, setPage] = useState<Page>("home");
   const [activeTask, setActiveTask] = useState<TaskNumber>(1);
@@ -56,9 +76,10 @@ export default function RecoveredWebsite() {
   const [ascending, setAscending] = useState(false);
   const [selectedLogId, setSelectedLogId] = useState("01-A");
   const [serverNewest, setServerNewest] = useState(false);
+  const [selectedMemoId, setSelectedMemoId] = useState("JR-03");
 
   const sync = () => {
-    const task: TaskNumber = localStorage.getItem(solvedKey(1)) !== "true" ? 1 : localStorage.getItem(solvedKey(2)) !== "true" ? 2 : localStorage.getItem(solvedKey(3)) !== "true" ? 3 : localStorage.getItem(solvedKey(4)) !== "true" ? 4 : 5;
+    const task: TaskNumber = localStorage.getItem(solvedKey(1)) !== "true" ? 1 : localStorage.getItem(solvedKey(2)) !== "true" ? 2 : localStorage.getItem(solvedKey(3)) !== "true" ? 3 : localStorage.getItem(solvedKey(4)) !== "true" ? 4 : localStorage.getItem(solvedKey(5)) !== "true" ? 5 : 6;
     setActiveTask(task);
     const saved = JSON.parse(localStorage.getItem(evidenceKey(task)) ?? "[]");
     setEvidence(Array.isArray(saved) ? saved : []);
@@ -82,11 +103,12 @@ export default function RecoveredWebsite() {
   const selectedProjectDay = Number(selectedLog[2].split(" ")[1].replace(",", "")) - 4;
   const activity = useMemo(() => serverNewest ? [...serverLogs].reverse() : serverLogs, [serverNewest]);
   const investigationFiveEvidence = investigationFiveLogs[selectedLog[0]];
+  const selectedMemo = memoIndex.find((memo) => memo.id === selectedMemoId) ?? memoIndex[0];
 
   return <main className="legacy-site"><div className="legacy-shell">
     <header className="legacy-header"><button className="legacy-wordmark" onClick={() => go("home")}><span>Bellwether University</span><strong>Department of Cognitive Studies</strong></button><form className="legacy-search" onSubmit={(event) => { event.preventDefault(); setNotice("Search service unavailable in recovered snapshot."); }}><label htmlFor="archive-search">Search Bellwether</label><input id="archive-search"/><button type="submit">Go</button></form></header>
     <nav className="legacy-nav" aria-label="Project navigation">{(["home", "method", "participants", "notice"] as Page[]).map((id) => <button key={id} className={page === id ? "active" : ""} onClick={() => go(id)}>{labels[id]}</button>)}</nav>
-    <div className="legacy-columns"><aside><button className="sidebar-title" onClick={() => go("home")}>Project Morrowfield</button>{(["home", "team", "materials", "publications", "systems"] as Page[]).map((id) => <button key={id} className={page === id ? "active" : ""} onClick={() => go(id)}>{id === "home" ? "Overview" : labels[id]}</button>)}<hr/><small>Protocol BWU-03-118<br/>Last updated 09/18/03</small></aside>
+    <div className="legacy-columns"><aside><button className="sidebar-title" onClick={() => go("home")}>Project Morrowfield</button>{(["home", "team", "materials", "publications", "ethics", "memos", "systems"] as Page[]).map((id) => <button key={id} className={page === id ? "active" : ""} onClick={() => go(id)}>{id === "home" ? "Overview" : labels[id]}</button>)}<hr/><small>Protocol BWU-03-118<br/>Last updated 09/18/03</small></aside>
       <article><p className="breadcrumbs">Bellwether › Research › {labels[page]}</p>
         {page === "home" && <><h1>Project Morrowfield</h1><p className="lead">A controlled study of memory conformity in constructed environments.</p><h2>Project overview</h2><p>Project Morrowfield examines how repeated exposure to a coherent fictional history influences autobiographical recall.</p><p>Participant sessions commenced <Fact id="official" label="official commencement date" task={1}>September 18, 2003</Fact>.</p><div className="legacy-rule"/><p className="legacy-meta">Principal investigator: Dr. Elian Voss<br/>Contact: evoss@bellwether.edu</p></>}
         {page === "method" && <><h1>Study Methodology</h1><p>Participants reviewed a fabricated municipal history, then completed guided-recall interviews at seven-day intervals.</p><h2>Materials control</h2><p>The fictional material was designed and sealed before the first participant session. <Fact id="materials-rule" label="materials control rule" task={4}>No additions were permitted after commencement.</Fact></p><h2>Indexing practice</h2><p>Session records are arranged by filing date. Cross-reference numbers refer to the materials register rather than participant identifiers.</p><div className="legacy-approval">APPROVED · 03 SEPT 2003</div></>}
@@ -95,6 +117,8 @@ export default function RecoveredWebsite() {
         {page === "team" && <><h1>Research Team</h1><p className="lead">Project Morrowfield was administered by the Memory and Suggestibility Laboratory.</p><div className="staff-list"><section><h2>Dr. Elian Voss</h2><p>Principal investigator · Experimental design and participant interviews</p></section><section><h2>Dr. Miriam Calder</h2><p>Faculty sponsor · Research ethics and methodology review</p></section><section><h2>Jonas Reed</h2><p>Graduate researcher · Materials construction and data coding</p></section><section><h2>Nadia Bell</h2><p>Research assistant · Session scheduling and records management</p></section></div></>}
         {page === "materials" && <><h1>Study Materials</h1><p>Participants were shown a constructed municipal archive representing the fictional town of Morrowfield.</p><ul className="materials-list"><li><strong>Packet A</strong><span>Municipal history and founding records</span></li><li><strong>Packet B</strong><span>Street map and civic landmarks · <Fact id="packet-b-revision" label="Packet B revision record" task={4}>revised 09/22/03</Fact></span></li><li><strong>Packet C</strong><span>Festival photographs, 1971-1987</span></li><li><strong>Packet D</strong><span>Simulated newspaper extracts</span></li></ul><h2>Technical documents</h2><p><a className="document-link" href="/documents/morrowfield-methodology.pdf" target="_blank" rel="noopener" onClick={() => capture("methodology-pdf", "methodology appendix", 2)}>Morrowfield methodology appendix (PDF, 312 KB)</a></p></>}
         {page === "publications" && <><h1>Publications</h1><p>No peer-reviewed findings were published from this project.</p><div className="publication-entry"><a className="document-link" href="/documents/voss-constructed-environments.pdf" target="_blank" rel="noopener" onClick={() => capture("voss-paper", "Voss publication", 2)}>Voss, E. (2003). Constructed environments and autobiographical conformity. (PDF)</a><span>Conference paper. Retrieved from the departmental working-paper index.</span></div></>}
+        {page === "ethics" && <><h1>Ethics Review</h1><p className="lead">Protocol BWU-03-118 · continuation review</p><h2>Approval status</h2><p>Approved September 03, 2003 for staged exposure and repeated guided recall. Faculty sponsor: Dr. Miriam Calder.</p><h2>Continuation conditions</h2><p>Routine confusion between packet details and prompted recall may be documented without interruption. <Fact id="ethics-safeguard" label="participant safeguard" task={6}>Suspend exposure if a participant attributes constructed Morrowfield material to personal autobiographical experience.</Fact></p><h2>Administrative notes</h2><p>Follow-up scheduling may be adjusted by up to 48 hours. Any change to stimulus material requires separate methodological review.</p><p className="legacy-meta">Review copy 2 of 3 · Office of Human Subjects · filed 09/05/03</p></>}
+        {page === "memos" && <><h1>Internal Memo Index</h1><p>Recovered departmental memoranda. Routine operational notes and project correspondence are retained together.</p><table className="log-table"><thead><tr><th>Memo</th><th>Date</th><th>From</th><th>Subject</th></tr></thead><tbody>{memoIndex.map((memo) => <tr key={memo.id} className={selectedMemoId === memo.id ? "selected-log" : ""}><td><button className="log-record-link" aria-pressed={selectedMemoId === memo.id} onClick={() => setSelectedMemoId(memo.id)}>{memo.id}</button></td><td>{memo.date}</td><td>{memo.from}</td><td>{memo.subject}</td></tr>)}</tbody></table><section className="log-detail"><h2>Memo {selectedMemo.id}</h2><p><strong>{selectedMemo.subject}.</strong> {selectedMemo.id === "NB-07" ? <Fact id="incident-threshold" label="incident summary" task={6}>{selectedMemo.body}</Fact> : selectedMemo.id === "MC-14" ? <Fact id="termination-order" label="suspension authorization" task={6}>{selectedMemo.body}</Fact> : selectedMemo.body}</p><p className="legacy-meta">Filed {selectedMemo.date} · From {selectedMemo.from}</p></section></>}
         {page === "systems" && <><h1>Site Administration</h1><p>Automated activity retained by the departmental server. Times shown in university local time.</p><h2>Access and export register</h2><table className="server-table"><thead><tr><th><button className="date-sort" onClick={() => setServerNewest((value) => !value)}>Accessed {serverNewest ? "▼" : "▲"}</button></th><th>Account</th><th>Resource</th><th>Action</th></tr></thead><tbody>{activity.map((entry) => { const final = entry[0] === "October 11, 2003"; return <tr key={`${entry[0]}-${entry[2]}`}><td>{final ? <Fact id="access-log" label="final authenticated access" task={3}>{entry[0]}</Fact> : entry[0]}</td><td>{entry[1]}</td><td>{final ? <Fact id="export-file" label="post-closure export" task={3}>{entry[2]}</Fact> : entry[2]}</td><td>{entry[3]}</td></tr>; })}</tbody></table><p className="legacy-meta">Register source: /var/log/httpd/morrowfield-access.log<br/>Export records retained independently of collection files.</p></>}
       </article>
     </div><footer>© 2003 Bellwether University · Text-only version · Accessibility · <button onClick={() => go("systems")}>Webmaster</button></footer></div>{notice && <div className="capture-notice" role="status">{notice}</div>}</main>;
