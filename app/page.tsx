@@ -21,11 +21,11 @@ import { Progress } from "@/components/ui/progress";
 
 type View = "task" | "website" | "casebook" | "report";
 type BookView = "current" | "history" | "notes";
-type TaskNumber = 1 | 2 | 3;
+type TaskNumber = 1 | 2 | 3 | 4;
 type PostIt = { id: string; text: string; savedText: string };
 type Notes = Record<TaskNumber, PostIt[]>;
 
-const taskNumbers: TaskNumber[] = [1, 2, 3];
+const taskNumbers: TaskNumber[] = [1, 2, 3, 4];
 
 const records = {
   official: { title: "Official commencement date", value: "September 18, 2003", source: "Project homepage" },
@@ -37,6 +37,8 @@ const records = {
   "closure-memo": { title: "Formal closure date", value: "October 02, 2003", source: "Collection status" },
   "access-log": { title: "Final authenticated access", value: "October 11, 2003 · evoss", source: "Site administration log" },
   "export-file": { title: "Post-closure export", value: "participant-index-03.zip", source: "Server export register" },
+  "materials-rule": { title: "Materials control rule", value: "No additions were permitted after commencement.", source: "Study Methodology" },
+  "packet-b-revision": { title: "Packet B revision record", value: "Revised September 22, 2003", source: "Study Materials · Packet B" },
 } as const;
 
 const tasks = {
@@ -44,39 +46,51 @@ const tasks = {
     label: "Investigation 01",
     title: "Establish the project’s commencement date",
     brief: "The recovered Project Morrowfield records contain conflicting dates. Determine when participant activity actually began.",
-    required: "Your report must record the public commencement date, the earliest participant session date, and the last verified backup date.",
+    required: "Establish the project timeline and preserve the records that support it.",
     reportTitle: "Record the conflicting project dates",
     fields: ["What commencement date is claimed on the public project homepage?", "What is the date of the earliest participant session?", "What is the date of the last verified backup?"],
     evidence: [
-      { id: "official", hint: "The public project homepage includes a commencement date." },
-      { id: "session", hint: "Sort the participant records by date and inspect the earliest session." },
-      { id: "backup", hint: "Administrative pages often retain an earlier backup record." },
+      { id: "official", hint: "The public-facing project material contains one date." },
+      { id: "session", hint: "The participant records can be ordered chronologically." },
+      { id: "backup", hint: "Look for an archival date that predates both of those records." },
     ],
   },
   2: {
     label: "Investigation 02",
     title: "Identify the unlisted contributor",
     brief: "The public team page names four researchers, but technical records point to another person who maintained the collection.",
-    required: "Your report must record the log preparer, the role in the methodology appendix, and the full name and role given in the Voss paper.",
+    required: "Identify the missing contributor and establish their role from the recovered archive.",
     reportTitle: "Reconcile the contributor records",
-    fields: ["Who is listed as the preparer of Participant Log 01-A?", "What role does the methodology appendix assign to E. Harrow?", "How does the Voss paper identify the contributor by full name and role?"],
+    fields: ["Who is the unlisted contributor?", "What work were they performing for the project?", "What was their fuller role in the collection?"],
     evidence: [
-      { id: "harrow-log", hint: "The earliest participant record has a preparer, not just a date." },
-      { id: "methodology-pdf", hint: "Methodology appendices often list people responsible for records." },
-      { id: "voss-paper", hint: "Publication acknowledgements often expand initials into full names." },
+      { id: "harrow-log", hint: "Some participant records identify who prepared them." },
+      { id: "methodology-pdf", hint: "A technical document contains staffing information not shown on the team page." },
+      { id: "voss-paper", hint: "A publication expands an abbreviated name elsewhere in the archive." },
     ],
   },
   3: {
     label: "Investigation 03",
     title: "Identify the final post-closure access",
     brief: "Project Morrowfield was formally closed, yet the recovered server retains a later activity trail.",
-    required: "Your report must record the formal closure date, the account and date of the final authenticated access, and the exported file.",
+    required: "Determine what happened after closure and preserve the records that establish it.",
     reportTitle: "Document the post-closure access",
-    fields: ["When was Project Morrowfield formally closed?", "What account made the final authenticated access, and on what date?", "Which file was exported during that final access?"],
+    fields: ["When was Project Morrowfield formally closed?", "What account made the final authenticated access, and on what date?", "What was taken during that access?"],
     evidence: [
-      { id: "closure-memo", hint: "Start by establishing when the collection officially closed." },
-      { id: "access-log", hint: "Server logs can be sorted by their most recent activity." },
-      { id: "export-file", hint: "The final access left an export entry in the server register." },
+      { id: "closure-memo", hint: "First establish the date the collection was formally closed." },
+      { id: "access-log", hint: "The server retains activity after the official closure." },
+      { id: "export-file", hint: "The last activity includes a specific resource and action." },
+    ],
+  },
+  4: {
+    label: "Investigation 04",
+    title: "Investigate the altered study material",
+    brief: "A recovered materials record suggests that part of the experiment changed after participant sessions were already underway. Determine whether the archive documents a breach of the study’s own controls.",
+    required: "Establish whether the study materials were changed when they should have remained fixed.",
+    reportTitle: "Document the materials-control breach",
+    fields: ["What rule governed changes to study materials after participant sessions began?", "What recovered record shows that rule may have been violated?"],
+    evidence: [
+      { id: "materials-rule", hint: "The study documentation states how materials were supposed to be controlled." },
+      { id: "packet-b-revision", hint: "One listed study packet carries a revision date worth comparing with the participant timeline." },
     ],
   },
 } as const;
@@ -84,23 +98,27 @@ const tasks = {
 const evidenceKey = (task: TaskNumber) => `morrowfield:evidence-${String(task).padStart(2, "0")}`;
 const solvedKey = (task: TaskNumber) => `morrowfield:solved-${String(task).padStart(2, "0")}`;
 
+const emptyEvidence = (): Record<TaskNumber, string[]> => ({ 1: [], 2: [], 3: [], 4: [] });
+const emptySolved = (): Record<TaskNumber, boolean> => ({ 1: false, 2: false, 3: false, 4: false });
+const emptyNotes = (): Notes => ({ 1: [], 2: [], 3: [], 4: [] });
+
 export default function Home() {
   const [started, setStarted] = useState(false);
   const [view, setView] = useState<View>("task");
   const [bookView, setBookView] = useState<BookView>("current");
-  const [evidenceByTask, setEvidenceByTask] = useState<Record<TaskNumber, string[]>>({ 1: [], 2: [], 3: [] });
-  const [solved, setSolved] = useState<Record<TaskNumber, boolean>>({ 1: false, 2: false, 3: false });
-  const [answers, setAnswers] = useState(["", "", ""]);
+  const [evidenceByTask, setEvidenceByTask] = useState<Record<TaskNumber, string[]>>(emptyEvidence());
+  const [solved, setSolved] = useState<Record<TaskNumber, boolean>>(emptySolved());
+  const [answers, setAnswers] = useState<string[]>(Array(tasks[1].fields.length).fill(""));
   const [feedback, setFeedback] = useState("");
   const [shownHints, setShownHints] = useState<string[]>([]);
-  const [notes, setNotes] = useState<Notes>({ 1: [], 2: [], 3: [] });
+  const [notes, setNotes] = useState<Notes>(emptyNotes());
   const [notesTask, setNotesTask] = useState<TaskNumber>(1);
   const [websiteOpened, setWebsiteOpened] = useState(false);
 
-  const activeTask: TaskNumber = solved[1] ? (solved[2] ? 3 : 2) : 1;
+  const activeTask: TaskNumber = !solved[1] ? 1 : !solved[2] ? 2 : !solved[3] ? 3 : 4;
   const task = tasks[activeTask];
   const currentEvidence = evidenceByTask[activeTask];
-  const isComplete = solved[3];
+  const isComplete = solved[4];
 
   const sync = () => {
     const solvedState = Object.fromEntries(taskNumbers.map((number) => [number, localStorage.getItem(solvedKey(number)) === "true"])) as Record<TaskNumber, boolean>;
@@ -116,7 +134,7 @@ export default function Home() {
     })) as Record<TaskNumber, string[]>;
     setSolved(solvedState);
     setEvidenceByTask(grouped);
-    const savedNotes = JSON.parse(localStorage.getItem("morrowfield:notes") ?? '{"1":[],"2":[],"3":[]}');
+    const savedNotes = JSON.parse(localStorage.getItem("morrowfield:notes") ?? '{"1":[],"2":[],"3":[],"4":[]}');
     const normalizedNotes = Object.fromEntries(taskNumbers.map((number) => {
       const source = savedNotes[number] ?? [];
       if (typeof source === "string") return [number, source.trim() ? [{ id: `migrated-${number}`, text: source, savedText: source }] : []];
@@ -133,13 +151,22 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    setAnswers(["", "", ""]); setFeedback(""); setShownHints([]); setNotesTask(activeTask);
+    setAnswers(Array(tasks[activeTask].fields.length).fill(""));
+    setFeedback("");
+    setShownHints([]);
+    setNotesTask(activeTask);
   }, [activeTask]);
 
   const reset = () => {
     ["morrowfield:evidence", "morrowfield:notes", ...taskNumbers.flatMap((number) => [evidenceKey(number), solvedKey(number)])].forEach((key) => localStorage.removeItem(key));
-    setStarted(false); setView("task"); setBookView("current"); setEvidenceByTask({ 1: [], 2: [], 3: [] });
-    setSolved({ 1: false, 2: false, 3: false }); setAnswers(["", "", ""]); setFeedback(""); setNotes({ 1: [], 2: [], 3: [] });
+    setStarted(false);
+    setView("task");
+    setBookView("current");
+    setEvidenceByTask(emptyEvidence());
+    setSolved(emptySolved());
+    setAnswers(Array(tasks[1].fields.length).fill(""));
+    setFeedback("");
+    setNotes(emptyNotes());
   };
 
   const addPostIt = () => {
@@ -149,11 +176,13 @@ export default function Home() {
   const editPostIt = (id: string, text: string) => setNotes((current) => ({ ...current, [notesTask]: current[notesTask].map((note) => note.id === id ? { ...note, text } : note) }));
   const savePostIt = (id: string) => setNotes((current) => {
     const next = { ...current, [notesTask]: current[notesTask].map((note) => note.id === id ? { ...note, savedText: note.text } : note) };
-    localStorage.setItem("morrowfield:notes", JSON.stringify(next)); return next;
+    localStorage.setItem("morrowfield:notes", JSON.stringify(next));
+    return next;
   });
   const deletePostIt = (id: string) => setNotes((current) => {
     const next = { ...current, [notesTask]: current[notesTask].filter((note) => note.id !== id) };
-    localStorage.setItem("morrowfield:notes", JSON.stringify(next)); return next;
+    localStorage.setItem("morrowfield:notes", JSON.stringify(next));
+    return next;
   });
 
   const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -164,20 +193,32 @@ export default function Home() {
   const updateAnswer = (index: number, value: string) => setAnswers((current) => current.map((answer, i) => i === index ? value : answer));
 
   const submit = () => {
-    if (currentEvidence.length < task.evidence.length) { setFeedback(`Record all ${task.evidence.length} pieces of evidence in your casebook before submitting.`); return; }
-    if (answers.some((answer) => !answer.trim())) { setFeedback("Complete all three report fields before submitting."); return; }
+    if (currentEvidence.length < task.evidence.length) {
+      setFeedback(`Record all ${task.evidence.length} relevant ${task.evidence.length === 1 ? "record" : "records"} in your casebook before submitting.`);
+      return;
+    }
+    if (answers.some((answer) => !answer.trim())) {
+      setFeedback(`Complete all ${task.fields.length} report ${task.fields.length === 1 ? "field" : "fields"} before submitting.`);
+      return;
+    }
     const normalized = answers.map(normalize);
     let accepted = false;
     if (activeTask === 1) accepted = isDate(answers[0], "september", "18") && isDate(answers[1], "september", "12") && isDate(answers[2], "september", "04");
     if (activeTask === 2) accepted = normalized[0].includes("harrow") && ((normalized[1].includes("record") && normalized[1].includes("contract")) || normalized[1].includes("recordscontractor")) && normalized[2].includes("eleanorharrow") && normalized[2].includes("archiv");
     if (activeTask === 3) accepted = isDate(answers[0], "october", "02") && normalized[1].includes("evoss") && isDate(answers[1], "october", "11") && normalized[2].includes("participantindex03zip");
-    if (!accepted) { setFeedback("The report does not match the records currently in your casebook. Recheck the evidence and your notes."); return; }
+    if (activeTask === 4) accepted = ((normalized[0].includes("noaddition") || normalized[0].includes("nochange") || normalized[0].includes("remainfixed")) && (normalized[0].includes("commencement") || normalized[0].includes("session"))) && (normalized[1].includes("packetb") || normalized[1].includes("streetmap") || normalized[1].includes("map")) && isDate(answers[1], "september", "22");
+    if (!accepted) {
+      setFeedback("The report does not match the records currently in your casebook. Recheck the evidence and your notes.");
+      return;
+    }
     localStorage.setItem(solvedKey(activeTask), "true");
-    setSolved((current) => ({ ...current, [activeTask]: true })); setFeedback(""); setView("task");
+    setSolved((current) => ({ ...current, [activeTask]: true }));
+    setFeedback("");
+    setView("task");
   };
 
   const previousTasks = useMemo(() => taskNumbers.filter((number) => solved[number]), [solved]);
-  const recovery = isComplete ? 42 : solved[2] ? 34 : solved[1] ? 24 : 14;
+  const recovery = isComplete ? 55 : solved[3] ? 46 : solved[2] ? 34 : solved[1] ? 24 : 14;
 
   if (!started) return <main className="boot"><section className="boot-card"><div className="seal"><Archive /></div><p className="eyebrow">Bellwether University Archives</p><h1>The Morrowfield Collection</h1><p>Accession review 27-041. Investigate the recovered website, preserve relevant evidence, and complete each accession report.</p><button className="primary" onClick={() => setStarted(true)}>Open case file</button><small>Authorized archival workstation · Case 27-041</small></section></main>;
 
@@ -193,19 +234,19 @@ export default function Home() {
       <section className="window">
         <div className="window-title"><span>{view === "task" ? "Current Assignment" : view === "website" ? "Recovered Website" : view === "casebook" ? "Investigation Casebook" : "Accession Report"}</span><i>□ □ ×</i></div>
 
-        {view === "task" && <div className="content task-page"><p className="label">{isComplete ? "Current case status" : task.label}</p><h2>{isComplete ? "All available reports accepted" : task.title}</h2>{isComplete ? <><p>Three findings have been preserved in the accession record. Your earlier evidence and notes remain available in the casebook.</p><button className="secondary-action" onClick={() => { setBookView("history"); setView("casebook"); }}>Review completed case</button></> : <><p>{task.brief}</p><div className="assignment-card"><div><span>Objective</span><p>{task.required}</p></div><div><span>What you will submit</span><strong>3 written answers supported by {task.evidence.length} records</strong></div></div><div className="next-step"><span>Next</span><p>Search the recovered Project Morrowfield website for the information required by this report.</p><button className="primary" onClick={() => setView("website")}>Go to recovered website</button></div></>}</div>}
+        {view === "task" && <div className="content task-page"><p className="label">{isComplete ? "Current case status" : task.label}</p><h2>{isComplete ? "All available reports accepted" : task.title}</h2>{isComplete ? <><p>Four investigations have been preserved in the accession record. Your earlier evidence and notes remain available in the casebook.</p><button className="secondary-action" onClick={() => { setBookView("history"); setView("casebook"); }}>Review completed case</button></> : <><p>{task.brief}</p><div className="assignment-card"><div><span>Objective</span><p>{task.required}</p></div><div><span>What you will submit</span><strong>{task.fields.length} written {task.fields.length === 1 ? "answer" : "answers"} supported by {task.evidence.length} relevant {task.evidence.length === 1 ? "record" : "records"}</strong></div></div><div className="next-step"><span>Next</span><p>Search the recovered Project Morrowfield website and build a supported conclusion from what you find.</p><button className="primary" onClick={() => setView("website")}>Go to recovered website</button></div></>}</div>}
 
-        {view === "website" && <div className="content external-archive"><p className="label">Step 2 · Investigate</p><h2>Search Project Morrowfield</h2><p>The answers to your current report are somewhere in the recovered university website. Relevant text and document links can be clicked to preserve them in your casebook.</p><div className="external-file"><FolderOpen/><div><strong>morrowfield.bellwether.edu</strong><span>Recovered snapshot · opens in a separate tab</span></div><a className="primary" href="/archive" target="_blank" rel="noopener" onClick={() => setWebsiteOpened(true)}>Open website <ExternalLink size={16}/></a></div><div className="workflow-help"><BookMarked/><div><strong>Found something useful?</strong><p>Click the relevant fact on the recovered website. It will be filed under Current Findings in your casebook.</p></div><button className="secondary-action" onClick={() => setView("casebook")}>{websiteOpened ? "Open casebook" : "View casebook"}</button></div></div>}
+        {view === "website" && <div className="content external-archive"><p className="label">Investigate</p><h2>Search Project Morrowfield</h2><p>The information needed for your current report is somewhere in the recovered university website. Relevant text and document links can be clicked to preserve them in your casebook.</p><div className="external-file"><FolderOpen/><div><strong>morrowfield.bellwether.edu</strong><span>Recovered snapshot · opens in a separate tab</span></div><a className="primary" href="/archive" target="_blank" rel="noopener" onClick={() => setWebsiteOpened(true)}>Open website <ExternalLink size={16}/></a></div><div className="workflow-help"><BookMarked/><div><strong>Found something useful?</strong><p>Click a relevant fact on the recovered website to preserve it in Current Findings. You can keep your own theories and page references in Personal Notes.</p></div><button className="secondary-action" onClick={() => setView("casebook")}>{websiteOpened ? "Open casebook" : "View casebook"}</button></div></div>}
 
-        {view === "casebook" && <div className="content casebook-page"><p className="label">Step 3 · Organize</p><h2>Investigation Casebook</h2><div className="book-tabs" role="tablist" aria-label="Casebook sections"><button className={bookView === "current" ? "active" : ""} onClick={() => setBookView("current")}><BookCheck/><span>Current findings</span><b>{currentEvidence.length}/{task.evidence.length}</b></button><button className={bookView === "history" ? "active" : ""} onClick={() => setBookView("history")}><History/><span>Evidence archive</span><b>{previousTasks.length}</b></button><button className={bookView === "notes" ? "active" : ""} onClick={() => setBookView("notes")}><NotebookPen/><span>Personal notes</span></button></div>
-          {bookView === "current" && <section className="book-sheet"><div className="book-heading"><div><span>{task.label}</span><h3>{task.title}</h3></div><strong>{currentEvidence.length} of {task.evidence.length} records</strong></div><div className="evidence-list">{task.evidence.map((slot, index) => { const item = records[slot.id as keyof typeof records]; const captured = currentEvidence.includes(slot.id); const shown = shownHints.includes(slot.id); return <article key={slot.id} className={captured ? "collected" : ""}><span>EX-{String(index + 1).padStart(2, "0")}</span><div><h3>{captured ? item.title : `Evidence slot ${index + 1}`}</h3>{captured ? <><strong>{item.value}</strong><p>{item.source}</p></> : <p>Nothing has been recorded in this slot.</p>}{shown && <p className="evidence-hint">Hint: {slot.hint}</p>}<button className="hint-button" onClick={() => setShownHints((current) => current.includes(slot.id) ? current : [...current, slot.id])}>{shown ? "Hint shown" : "Show hint"}</button></div></article>; })}</div><button className="primary report-cta" disabled={currentEvidence.length < task.evidence.length} onClick={() => setView("report")}>Complete report</button></section>}
+        {view === "casebook" && <div className="content casebook-page"><p className="label">Casebook</p><h2>Investigation Casebook</h2><div className="book-tabs" role="tablist" aria-label="Casebook sections"><button className={bookView === "current" ? "active" : ""} onClick={() => setBookView("current")}><BookCheck/><span>Current findings</span><b>{currentEvidence.length}/{task.evidence.length}</b></button><button className={bookView === "history" ? "active" : ""} onClick={() => setBookView("history")}><History/><span>Evidence archive</span><b>{previousTasks.length}</b></button><button className={bookView === "notes" ? "active" : ""} onClick={() => setBookView("notes")}><NotebookPen/><span>Personal notes</span></button></div>
+          {bookView === "current" && <section className="book-sheet"><div className="book-heading"><div><span>{task.label}</span><h3>{task.title}</h3></div><strong>{currentEvidence.length} of {task.evidence.length} relevant {task.evidence.length === 1 ? "record" : "records"}</strong></div><div className="evidence-list">{task.evidence.map((slot, index) => { const item = records[slot.id as keyof typeof records]; const captured = currentEvidence.includes(slot.id); const shown = shownHints.includes(slot.id); return <article key={slot.id} className={captured ? "collected" : ""}><span>EX-{String(index + 1).padStart(2, "0")}</span><div><h3>{captured ? item.title : `Unresolved record ${index + 1}`}</h3>{captured ? <><strong>{item.value}</strong><p>{item.source}</p></> : <p>No relevant record has been preserved here yet.</p>}{shown && <p className="evidence-hint">Hint: {slot.hint}</p>}<button className="hint-button" onClick={() => setShownHints((current) => current.includes(slot.id) ? current : [...current, slot.id])}>{shown ? "Hint shown" : "Show hint"}</button></div></article>; })}</div><button className="primary report-cta" disabled={currentEvidence.length < task.evidence.length} onClick={() => setView("report")}>Complete report</button></section>}
           {bookView === "history" && <section className="book-sheet"><div className="book-heading"><div><span>Preserved records</span><h3>Evidence archive</h3></div></div>{previousTasks.length === 0 ? <p className="empty">Accepted investigations will be stored here with all of their evidence.</p> : <div className="history-stack">{previousTasks.map((number) => <details key={number} open={number === previousTasks.at(-1)}><summary><span>{tasks[number].label}</span><strong>{tasks[number].title}</strong><b>{evidenceByTask[number].length}/{tasks[number].evidence.length}</b></summary><div className="archived-evidence">{tasks[number].evidence.map((slot) => { const item = records[slot.id as keyof typeof records]; return <article key={slot.id}><BookMarked/><div><strong>{item.title}</strong><span>{item.value}</span><small>{item.source}</small></div></article>; })}</div></details>)}</div>}</section>}
           {bookView === "notes" && <section className="book-sheet notes-book"><div className="book-heading"><div><span>Saved on this device</span><h3>Personal investigation notes</h3></div><button className="add-postit" onClick={addPostIt}><Plus/> Add Post-it</button></div><div className="note-task-tabs">{taskNumbers.map((number) => <button key={number} className={notesTask === number ? "active" : ""} disabled={number > activeTask} onClick={() => setNotesTask(number)}>Book {String(number).padStart(2, "0")}</button>)}</div><div className="postit-board">{notes[notesTask].length === 0 ? <p className="empty">No notes yet. Add a Post-it for a date, theory, contradiction, or page location.</p> : notes[notesTask].map((note) => <article className="postit" key={note.id}><textarea value={note.text} onChange={(event) => editPostIt(note.id, event.target.value)} placeholder="Write a note…"/><div><span>{note.text === note.savedText ? "Saved" : "Unsaved changes"}</span><button onClick={() => savePostIt(note.id)} aria-label="Save Post-it"><Save/> Save</button><button className="delete-postit" onClick={() => deletePostIt(note.id)} aria-label="Delete Post-it"><Trash2/> Delete</button></div></article>)}</div></section>}
         </div>}
 
-        {view === "report" && <div className="content"><p className="label">Step 4 · {task.label}</p><h2>{task.reportTitle}</h2><p>Answer each question using the three records in your casebook. Your Post-its remain available there.</p><div className="report-evidence-summary"><span>Evidence recorded</span><strong>{currentEvidence.length}/{task.evidence.length}</strong><button onClick={() => { setBookView("current"); setView("casebook"); }}>Review casebook</button></div><div className="finding-fields">{task.fields.map((field, index) => <label key={field}><span>{field}</span><input value={answers[index]} onChange={(event) => updateAnswer(index, event.target.value)} placeholder="Enter your finding" autoComplete="off"/></label>)}</div>{feedback && <p className="feedback">{feedback}</p>}<button className="primary" disabled={isComplete} onClick={submit}>{isComplete ? "Finding accepted" : "Submit report"}</button></div>}
+        {view === "report" && <div className="content"><p className="label">{task.label}</p><h2>{task.reportTitle}</h2><p>Answer the questions using the relevant records in your casebook. Your Post-its remain available there.</p><div className="report-evidence-summary"><span>Evidence recorded</span><strong>{currentEvidence.length}/{task.evidence.length}</strong><button onClick={() => { setBookView("current"); setView("casebook"); }}>Review casebook</button></div><div className="finding-fields">{task.fields.map((field, index) => <label key={field}><span>{field}</span><input value={answers[index] ?? ""} onChange={(event) => updateAnswer(index, event.target.value)} placeholder="Enter your finding" autoComplete="off"/></label>)}</div>{feedback && <p className="feedback">{feedback}</p>}<button className="primary" disabled={isComplete} onClick={submit}>{isComplete ? "Finding accepted" : "Submit report"}</button></div>}
       </section>
-      <aside className="status"><p>Current assignment</p><strong>0{activeTask}</strong><span className="status-title">{isComplete ? "Case complete" : task.title}</span><Progress value={(currentEvidence.length / task.evidence.length) * 100}/><dl><div><dt>Evidence</dt><dd>{currentEvidence.length} / {task.evidence.length}</dd></div><div><dt>Report</dt><dd>{solved[activeTask] ? "Accepted" : "Not submitted"}</dd></div><div><dt>Recovery</dt><dd>{recovery}%</dd></div></dl><button className="status-report" onClick={() => setView("report")}>Open report</button></aside>
+      <aside className="status"><p>Current assignment</p><strong>{String(activeTask).padStart(2, "0")}</strong><span className="status-title">{isComplete ? "Case complete" : task.title}</span><Progress value={(currentEvidence.length / task.evidence.length) * 100}/><dl><div><dt>Evidence</dt><dd>{currentEvidence.length} / {task.evidence.length}</dd></div><div><dt>Report</dt><dd>{solved[activeTask] ? "Accepted" : "Not submitted"}</dd></div><div><dt>Recovery</dt><dd>{recovery}%</dd></div></dl><button className="status-report" onClick={() => setView("report")}>Open report</button></aside>
     </section>
   </main>;
 }
