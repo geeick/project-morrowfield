@@ -186,11 +186,6 @@ export default function Home() {
   });
 
   const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const hasAny = (value: string, terms: string[]) => terms.some((term) => value.includes(term));
-  const isDate = (value: string, month: string, day: string) => {
-    const answer = normalize(value);
-    return answer.includes(`${month}${day}2003`) || answer.includes(`${month.slice(0, 3)}${day}2003`) || answer.includes(`${month.slice(0, 3)}${day}`);
-  };
   const updateAnswer = (index: number, value: string) => setAnswers((current) => current.map((answer, i) => i === index ? value : answer));
 
   const submit = () => {
@@ -202,28 +197,10 @@ export default function Home() {
       setFeedback(`Complete all ${task.fields.length} report ${task.fields.length === 1 ? "field" : "fields"} before submitting.`);
       return;
     }
-    const normalized = answers.map(normalize);
-    let accepted = false;
-    if (activeTask === 1) accepted = isDate(answers[0], "september", "18") && isDate(answers[1], "september", "12") && isDate(answers[2], "september", "04");
-    if (activeTask === 2) {
-      const contributor = hasAny(normalized[0], ["harrow", "eleanor"]);
-      const work = hasAny(normalized[1], ["record", "contract", "archiv", "log", "filing", "maintain"]);
-      const fullerRole = hasAny(normalized[2], ["harrow", "eleanor"]) && hasAny(normalized[2], ["archiv", "record", "collection"]);
-      accepted = contributor && work && fullerRole;
-    }
-    if (activeTask === 3) {
-      const closure = isDate(answers[0], "october", "02");
-      const access = hasAny(normalized[1], ["evoss", "voss"]) && isDate(answers[1], "october", "11");
-      const exportRecord = hasAny(normalized[2], ["participantindex03zip", "participantindex", "index03", "zip", "export"]);
-      accepted = closure && access && exportRecord;
-    }
-    if (activeTask === 4) {
-      const rule = hasAny(normalized[0], ["noaddition", "nochange", "remainfixed", "unchanged", "fixed", "couldntchange", "couldnotchange", "notbechanged", "locked"]) && hasAny(normalized[0], ["commencement", "session", "began", "start"]);
-      const revisionRecord = hasAny(normalized[1], ["revisionrecord", "revision", "revised", "packetb", "streetmap", "september22", "sep22", "9222003"]);
-      accepted = rule && revisionRecord;
-    }
+    const expected = task.evidence.map((slot) => records[slot.id as keyof typeof records].value);
+    const accepted = answers.every((answer, index) => normalize(answer) === normalize(expected[index] ?? ""));
     if (!accepted) {
-      setFeedback("One or more answers do not match the evidence yet. Exact wording is not required—state the finding in your own words and include the key fact from the record.");
+      setFeedback("One or more answers do not match the finding saved in your casebook. Enter the casebook value for each question.");
       return;
     }
     localStorage.setItem(solvedKey(activeTask), "true");
@@ -259,7 +236,7 @@ export default function Home() {
           {bookView === "notes" && <section className="book-sheet notes-book"><div className="book-heading"><div><span>Saved on this device</span><h3>Personal investigation notes</h3></div><button className="add-postit" onClick={addPostIt}><Plus/> Add Post-it</button></div><div className="note-task-tabs">{taskNumbers.map((number) => <button key={number} className={notesTask === number ? "active" : ""} disabled={number > activeTask} onClick={() => setNotesTask(number)}>Book {String(number).padStart(2, "0")}</button>)}</div><div className="postit-board">{notes[notesTask].length === 0 ? <p className="empty">No notes yet. Add a Post-it for a date, theory, contradiction, or page location.</p> : notes[notesTask].map((note) => <article className="postit" key={note.id}><textarea value={note.text} onChange={(event) => editPostIt(note.id, event.target.value)} placeholder="Write a note…"/><div><span>{note.text === note.savedText ? "Saved" : "Unsaved changes"}</span><button onClick={() => savePostIt(note.id)} aria-label="Save Post-it"><Save/> Save</button><button className="delete-postit" onClick={() => deletePostIt(note.id)} aria-label="Delete Post-it"><Trash2/> Delete</button></div></article>)}</div></section>}
         </div>}
 
-        {view === "report" && <div className="content"><p className="label">{task.label}</p><h2>{task.reportTitle}</h2><p>Answer in your own words using the relevant records in your casebook. Exact phrasing is not required; include the key fact that supports each finding. Your Post-its remain available there.</p><div className="report-evidence-summary"><span>Evidence recorded</span><strong>{currentEvidence.length}/{task.evidence.length}</strong><button onClick={() => { setBookView("current"); setView("casebook"); }}>Review casebook</button></div><div className="finding-fields">{task.fields.map((field, index) => <label key={field}><span>{field}</span><input value={answers[index] ?? ""} onChange={(event) => updateAnswer(index, event.target.value)} placeholder="Write your finding in your own words" autoComplete="off"/></label>)}</div>{feedback && <p className="feedback">{feedback}</p>}<button className="primary" disabled={isComplete} onClick={submit}>{isComplete ? "Finding accepted" : "Submit report"}</button></div>}
+        {view === "report" && <div className="content"><p className="label">{task.label}</p><h2>{task.reportTitle}</h2><p>Enter each finding as it appears in your casebook. Capitalization and punctuation do not have to match exactly, but the recorded value should.</p><div className="report-evidence-summary"><span>Evidence recorded</span><strong>{currentEvidence.length}/{task.evidence.length}</strong><button onClick={() => { setBookView("current"); setView("casebook"); }}>Review casebook</button></div><div className="finding-fields">{task.fields.map((field, index) => <label key={field}><span>{field}</span><input value={answers[index] ?? ""} onChange={(event) => updateAnswer(index, event.target.value)} placeholder="Enter the casebook finding" autoComplete="off"/></label>)}</div>{feedback && <p className="feedback">{feedback}</p>}<button className="primary" disabled={isComplete} onClick={submit}>{isComplete ? "Finding accepted" : "Submit report"}</button></div>}
       </section>
       <aside className="status"><p>Current assignment</p><strong>{String(activeTask).padStart(2, "0")}</strong><span className="status-title">{isComplete ? "Case complete" : task.title}</span><Progress value={(currentEvidence.length / task.evidence.length) * 100}/><dl><div><dt>Evidence</dt><dd>{currentEvidence.length} / {task.evidence.length}</dd></div><div><dt>Report</dt><dd>{solved[activeTask] ? "Accepted" : "Not submitted"}</dd></div><div><dt>Recovery</dt><dd>{recovery}%</dd></div></dl><button className="status-report" onClick={() => setView("report")}>Open report</button></aside>
     </section>
