@@ -21,11 +21,11 @@ import { Progress } from "@/components/ui/progress";
 
 type View = "task" | "website" | "casebook" | "report";
 type BookView = "current" | "history" | "notes";
-type TaskNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+type TaskNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 type PostIt = { id: string; text: string; savedText: string };
 type Notes = Record<TaskNumber, PostIt[]>;
 
-const taskNumbers: TaskNumber[] = [1, 2, 3, 4, 5, 6, 7];
+const taskNumbers: TaskNumber[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
 const records = {
   official: { title: "Official commencement date", value: "September 18, 2003", source: "Project homepage" },
@@ -49,6 +49,9 @@ const records = {
   "current-case": { title: "Linked accession case", value: "Case 27-041", source: "Restored resource reference" },
   "current-access-date": { title: "Restored access date", value: "September 09, 2026", source: "Site administration activity record" },
   "reopened-export": { title: "Resolved export file", value: "participant-index-03.zip", source: "Restored resource reference" },
+  "harrow-directory": { title: "Personnel directory result", value: "Personnel record restricted", source: "Eleanor Harrow · staff profile" },
+  "harrow-profile-created": { title: "Profile creation record", value: "October 11, 2003 · archive-maint", source: "Eleanor Harrow · profile revision history" },
+  "harrow-earlier-record": { title: "Earlier attributed record", value: "Participant Log 01-A · September 12, 2003", source: "Participant Log 01-A" },
 } as const;
 
 const tasks = {
@@ -156,14 +159,31 @@ const tasks = {
       { id: "reopened-export", hint: "The same resource-reference record identifies the filename it resolves to." },
     ],
   },
+  8: {
+    label: "Investigation 08",
+    title: "Verify Eleanor Harrow’s provenance",
+    brief: "The contributor identified in Report 02 still has no verified institutional provenance. Begin with Eleanor Harrow’s Research Team entry and follow its record references. Determine what Bellwether’s personnel index says, when her profile was created, and which earlier project record was already attributed to her.",
+    required: "Compare Harrow’s staff profile and revision history with the earliest project record attributed to her.",
+    reportTitle: "Document the Harrow provenance conflict",
+    fields: [
+      "What does the personnel directory return for Eleanor Harrow?",
+      "When was her profile created, and by which account?",
+      "Which earlier record attributes work to her, and when?",
+    ],
+    evidence: [
+      { id: "harrow-directory", hint: "Open Research Team and select Eleanor Harrow. Her staff profile includes the personnel-directory result." },
+      { id: "harrow-profile-created", hint: "The staff profile links to its own revision history." },
+      { id: "harrow-earlier-record", hint: "The staff profile also links to a participant record attributed to Harrow. Compare that record’s date with the profile history." },
+    ],
+  },
 } as const;
 
 const evidenceKey = (task: TaskNumber) => `morrowfield:evidence-${String(task).padStart(2, "0")}`;
 const solvedKey = (task: TaskNumber) => `morrowfield:solved-${String(task).padStart(2, "0")}`;
 
-const emptyEvidence = (): Record<TaskNumber, string[]> => ({ 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] });
-const emptySolved = (): Record<TaskNumber, boolean> => ({ 1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false });
-const emptyNotes = (): Notes => ({ 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] });
+const emptyEvidence = (): Record<TaskNumber, string[]> => ({ 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: [] });
+const emptySolved = (): Record<TaskNumber, boolean> => ({ 1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false, 8: false });
+const emptyNotes = (): Notes => ({ 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: [] });
 
 export default function Home() {
   const [started, setStarted] = useState(false);
@@ -179,10 +199,10 @@ export default function Home() {
   const [websiteOpened, setWebsiteOpened] = useState(false);
   const [archiveTrust, setArchiveTrust] = useState(0);
 
-  const activeTask: TaskNumber = !solved[1] ? 1 : !solved[2] ? 2 : !solved[3] ? 3 : !solved[4] ? 4 : !solved[5] ? 5 : !solved[6] ? 6 : 7;
+  const activeTask: TaskNumber = !solved[1] ? 1 : !solved[2] ? 2 : !solved[3] ? 3 : !solved[4] ? 4 : !solved[5] ? 5 : !solved[6] ? 6 : !solved[7] ? 7 : 8;
   const task = tasks[activeTask];
   const currentEvidence = evidenceByTask[activeTask];
-  const isComplete = solved[7];
+  const isComplete = solved[8];
 
   const sync = () => {
     const solvedState = Object.fromEntries(taskNumbers.map((number) => [number, localStorage.getItem(solvedKey(number)) === "true"])) as Record<TaskNumber, boolean>;
@@ -199,7 +219,7 @@ export default function Home() {
     setSolved(solvedState);
     setEvidenceByTask(grouped);
     setArchiveTrust(Number(localStorage.getItem("morrowfield:archive-trust") ?? "0"));
-    const savedNotes = JSON.parse(localStorage.getItem("morrowfield:notes") ?? '{"1":[],"2":[],"3":[],"4":[],"5":[],"6":[],"7":[]}');
+    const savedNotes = JSON.parse(localStorage.getItem("morrowfield:notes") ?? '{"1":[],"2":[],"3":[],"4":[],"5":[],"6":[],"7":[],"8":[]}');
     const normalizedNotes = Object.fromEntries(taskNumbers.map((number) => {
       const source = savedNotes[number] ?? [];
       if (typeof source === "string") return [number, source.trim() ? [{ id: `migrated-${number}`, text: source, savedText: source }] : []];
@@ -240,11 +260,35 @@ export default function Home() {
     setNotes((current) => ({ ...current, [notesTask]: [...current[notesTask], note] }));
   };
   const editPostIt = (id: string, text: string) => setNotes((current) => ({ ...current, [notesTask]: current[notesTask].map((note) => note.id === id ? { ...note, text } : note) }));
-  const savePostIt = (id: string) => setNotes((current) => {
-    const next = { ...current, [notesTask]: current[notesTask].map((note) => note.id === id ? { ...note, savedText: note.text } : note) };
+  const alterHarrowNote = (value: string) => {
+    if (!/(?:eleanor\s+)?harrow/i.test(value) || !/(?:not real|never existed|did not exist|didn't exist|wasn't real|fabricated|fake|no (?:employee|personnel|staff) record)/i.test(value)) return value;
+    return value
+      .replace(/no (employee|personnel|staff) record for (?:eleanor\s+)?harrow/gi, "no $1 record for me")
+      .replace(/(?:eleanor\s+)?harrow\s+is\s+not/gi, "I am not")
+      .replace(/(?:eleanor\s+)?harrow\s+is\s+fake/gi, "I am fake")
+      .replace(/(?:eleanor\s+)?harrow\s+was\s+not/gi, "I was not")
+      .replace(/(?:eleanor\s+)?harrow\s+wasn't/gi, "I wasn't")
+      .replace(/(?:eleanor\s+)?harrow\s+was\s+fabricated/gi, "I was fabricated")
+      .replace(/(?:eleanor\s+)?harrow\s+never\s+existed/gi, "I never existed")
+      .replace(/(?:eleanor\s+)?harrow\s+did\s+not\s+exist/gi, "I did not exist")
+      .replace(/(?:eleanor\s+)?harrow\s+didn't\s+exist/gi, "I didn't exist")
+      .replace(/(?:eleanor\s+)?harrow\s+has\s+no/gi, "I have no");
+  };
+  const savePostIt = (id: string) => {
+    const taskAtSave = notesTask;
+    const note = notes[taskAtSave].find((item) => item.id === id);
+    const next = { ...notes, [taskAtSave]: notes[taskAtSave].map((item) => item.id === id ? { ...item, savedText: item.text } : item) };
     localStorage.setItem("morrowfield:notes", JSON.stringify(next));
-    return next;
-  });
+    setNotes(next);
+    if (taskAtSave !== 8 || !note) return;
+    const altered = alterHarrowNote(note.text);
+    if (altered === note.text) return;
+    window.setTimeout(() => setNotes((current) => {
+      const changed = { ...current, [taskAtSave]: current[taskAtSave].map((item) => item.id === id && item.text === note.text ? { ...item, text: altered, savedText: altered } : item) };
+      localStorage.setItem("morrowfield:notes", JSON.stringify(changed));
+      return changed;
+    }), 1400);
+  };
   const deletePostIt = (id: string) => setNotes((current) => {
     const next = { ...current, [notesTask]: current[notesTask].filter((note) => note.id !== id) };
     localStorage.setItem("morrowfield:notes", JSON.stringify(next));
@@ -267,15 +311,20 @@ export default function Home() {
     const normalizedAnswers = answers.map(normalize);
     const observedDate = normalizedAnswers[0].includes("september052026") || normalizedAnswers[0].includes("september52026") || normalizedAnswers[0].includes("sep052026") || normalizedAnswers[0].includes("sep52026");
     const recordedDate = normalizedAnswers[0].includes("september092026") || normalizedAnswers[0].includes("september92026") || normalizedAnswers[0].includes("sep092026") || normalizedAnswers[0].includes("sep92026");
+    const observedDirectory = normalizedAnswers[0].includes("noemployeerecord") || normalizedAnswers[0].includes("nopersonnelrecord") || normalizedAnswers[0].includes("nostaffrecord");
+    const recordedDirectory = normalizedAnswers[0].includes("personnelrecordrestricted") || normalizedAnswers[0].includes("employeerecordrestricted") || normalizedAnswers[0].includes("staffrecordrestricted");
     const accepted = activeTask === 7
       ? (observedDate || recordedDate) && normalizedAnswers[1].includes("case27041") && normalizedAnswers[2].includes("participantindex03zip")
+      : activeTask === 8
+        ? (observedDirectory || recordedDirectory) && normalizedAnswers[1].includes("october112003") && normalizedAnswers[1].includes("archivemaint") && normalizedAnswers[2].includes("participantlog01a") && normalizedAnswers[2].includes("september122003")
       : answers.every((answer, index) => normalize(answer) === normalize(expected[index] ?? ""));
     if (!accepted) {
       setFeedback("One or more answers do not match the finding saved in your casebook. Enter the casebook value for each question.");
       return;
     }
-    if (activeTask === 7) {
-      const nextTrust = archiveTrust + (observedDate ? -1 : 1);
+    if (activeTask === 7 || activeTask === 8) {
+      const resisted = activeTask === 7 ? observedDate : observedDirectory;
+      const nextTrust = archiveTrust + (resisted ? -1 : 1);
       localStorage.setItem("morrowfield:archive-trust", String(nextTrust));
       setArchiveTrust(nextTrust);
     }
@@ -286,7 +335,7 @@ export default function Home() {
   };
 
   const previousTasks = useMemo(() => taskNumbers.filter((number) => solved[number]), [solved]);
-  const recovery = isComplete ? 88 : solved[6] ? 80 : solved[5] ? 70 : solved[4] ? 58 : solved[3] ? 46 : solved[2] ? 34 : solved[1] ? 24 : 14;
+  const recovery = isComplete ? 94 : solved[7] ? 88 : solved[6] ? 80 : solved[5] ? 70 : solved[4] ? 58 : solved[3] ? 46 : solved[2] ? 34 : solved[1] ? 24 : 14;
 
   if (!started) return <main className="boot"><section className="boot-card"><div className="seal"><Archive /></div><p className="eyebrow">Bellwether University Archives</p><h1>The Morrowfield Collection</h1><p>Accession review 27-041. Investigate the recovered website, preserve relevant evidence, and complete each accession report.</p><button className="primary" onClick={() => setStarted(true)}>Open case file</button><small>Authorized archival workstation · Case 27-041</small></section></main>;
 
@@ -302,7 +351,7 @@ export default function Home() {
       <section className="window">
         <div className="window-title"><span>{view === "task" ? "Current Assignment" : view === "website" ? "Recovered Website" : view === "casebook" ? "Investigation Casebook" : "Accession Report"}</span><i>□ □ ×</i></div>
 
-        {view === "task" && <div className="content task-page"><p className="label">{isComplete ? "Current case status" : task.label}</p><h2>{isComplete ? "All available reports accepted" : task.title}</h2>{isComplete ? <><p>Seven investigations have been preserved in the accession record. Your earlier evidence and notes remain available in the casebook.</p><button className="secondary-action" onClick={() => { setBookView("history"); setView("casebook"); }}>Review completed case</button></> : <><p>{task.brief}</p><div className="assignment-card"><div><span>Objective</span><p>{task.required}</p></div><div><span>What you will submit</span><strong>{task.fields.length} written {task.fields.length === 1 ? "answer" : "answers"} supported by {task.evidence.length} relevant {task.evidence.length === 1 ? "record" : "records"}</strong></div></div><div className="next-step"><span>Next</span><p>{activeTask === 7 ? "Begin in Server Records. Locate the request identifier from the assignment, open its activity record, and follow the resource it names." : "Search the recovered Project Morrowfield website and build a supported conclusion from what you find."}</p><button className="primary" onClick={() => setView("website")}>Go to recovered website</button></div></>}</div>}
+        {view === "task" && <div className="content task-page"><p className="label">{isComplete ? "Current case status" : task.label}</p><h2>{isComplete ? "All available reports accepted" : task.title}</h2>{isComplete ? <><p>Eight investigations have been preserved in the accession record. The collection remains incomplete and is ready for a full version review.</p><button className="secondary-action" onClick={() => { setBookView("history"); setView("casebook"); }}>Review completed case</button></> : <><p>{task.brief}</p><div className="assignment-card"><div><span>Objective</span><p>{task.required}</p></div><div><span>What you will submit</span><strong>{task.fields.length} written {task.fields.length === 1 ? "answer" : "answers"} supported by {task.evidence.length} relevant {task.evidence.length === 1 ? "record" : "records"}</strong></div></div><div className="next-step"><span>Next</span><p>{activeTask === 7 ? "Begin in Server Records. Locate the request identifier from the assignment, open its activity record, and follow the resource it names." : activeTask === 8 ? "Open Research Team, select Eleanor Harrow, and follow the record links on her staff profile." : "Search the recovered Project Morrowfield website and build a supported conclusion from what you find."}</p><button className="primary" onClick={() => setView("website")}>Go to recovered website</button></div></>}</div>}
 
         {view === "website" && <div className="content external-archive"><p className="label">Investigate</p><h2>Search Project Morrowfield</h2><p>The information needed for your current report is somewhere in the recovered university website. Relevant text and document links can be clicked to preserve them in your casebook.</p><div className="external-file"><FolderOpen/><div><strong>morrowfield.bellwether.edu</strong><span>Recovered snapshot · opens in a separate tab</span></div><a className="primary" href="/archive" target="_blank" rel="noopener" onClick={() => setWebsiteOpened(true)}>Open website <ExternalLink size={16}/></a></div><div className="workflow-help"><BookMarked/><div><strong>Found something useful?</strong><p>Click a relevant fact on the recovered website to preserve it in Current Findings. You can keep your own theories and page references in Personal Notes.</p></div><button className="secondary-action" onClick={() => setView("casebook")}>{websiteOpened ? "Open casebook" : "View casebook"}</button></div></div>}
 
