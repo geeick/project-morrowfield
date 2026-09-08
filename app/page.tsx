@@ -21,11 +21,11 @@ import { Progress } from "@/components/ui/progress";
 
 type View = "task" | "website" | "casebook" | "report";
 type BookView = "current" | "history" | "notes";
-type TaskNumber = 1 | 2 | 3 | 4 | 5 | 6;
+type TaskNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 type PostIt = { id: string; text: string; savedText: string };
 type Notes = Record<TaskNumber, PostIt[]>;
 
-const taskNumbers: TaskNumber[] = [1, 2, 3, 4, 5, 6];
+const taskNumbers: TaskNumber[] = [1, 2, 3, 4, 5, 6, 7];
 
 const records = {
   official: { title: "Official commencement date", value: "September 18, 2003", source: "Project homepage" },
@@ -46,6 +46,9 @@ const records = {
   "ethics-safeguard": { title: "Participant safeguard", value: "Suspend exposure if a participant attributes constructed Morrowfield material to personal autobiographical experience.", source: "Ethics Review · Continuation conditions" },
   "incident-threshold": { title: "Incident summary", value: "Four autobiographical-attribution incidents documented.", source: "Internal Memo NB-07" },
   "termination-order": { title: "Suspension authorization", value: "Dr. Miriam Calder · Immediate suspension · October 02, 2003", source: "Internal Memo MC-14" },
+  "current-case": { title: "Current recovery case", value: "Case 27-041", source: "Collection status · recovery ticket" },
+  "current-access-date": { title: "Restored access date", value: "September 09, 2026", source: "Site administration activity record" },
+  "reopened-export": { title: "Reopened export file", value: "participant-index-03.zip", source: "Study materials · recovery register" },
 } as const;
 
 const tasks = {
@@ -136,14 +139,31 @@ const tasks = {
       { id: "termination-order", hint: "The authorization itself is preserved separately from the public collection-status notice." },
     ],
   },
+  7: {
+    label: "Investigation 07",
+    title: "Reconstruct the current archive access",
+    brief: "A recovery ticket now links the active accession case to a restored Morrowfield server event. Establish when the access occurred and which exported record was opened. Preserve anything you do not want to rely on memory for.",
+    required: "Reconstruct the current access by connecting the recovery ticket, server activity record, and restored export reference.",
+    reportTitle: "Document the restored access",
+    fields: [
+      "Which accession case is linked to the restored access?",
+      "On what date did the restored access occur?",
+      "Which exported file was opened?",
+    ],
+    evidence: [
+      { id: "current-case", hint: "The collection-status page identifies the case attached to the current recovery ticket." },
+      { id: "current-access-date", hint: "Open the newest entry in the server activity register and inspect its recorded date." },
+      { id: "reopened-export", hint: "The study-materials page now includes a recovery-register reference." },
+    ],
+  },
 } as const;
 
 const evidenceKey = (task: TaskNumber) => `morrowfield:evidence-${String(task).padStart(2, "0")}`;
 const solvedKey = (task: TaskNumber) => `morrowfield:solved-${String(task).padStart(2, "0")}`;
 
-const emptyEvidence = (): Record<TaskNumber, string[]> => ({ 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] });
-const emptySolved = (): Record<TaskNumber, boolean> => ({ 1: false, 2: false, 3: false, 4: false, 5: false, 6: false });
-const emptyNotes = (): Notes => ({ 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] });
+const emptyEvidence = (): Record<TaskNumber, string[]> => ({ 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] });
+const emptySolved = (): Record<TaskNumber, boolean> => ({ 1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false });
+const emptyNotes = (): Notes => ({ 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [] });
 
 export default function Home() {
   const [started, setStarted] = useState(false);
@@ -157,11 +177,12 @@ export default function Home() {
   const [notes, setNotes] = useState<Notes>(emptyNotes());
   const [notesTask, setNotesTask] = useState<TaskNumber>(1);
   const [websiteOpened, setWebsiteOpened] = useState(false);
+  const [archiveTrust, setArchiveTrust] = useState(0);
 
-  const activeTask: TaskNumber = !solved[1] ? 1 : !solved[2] ? 2 : !solved[3] ? 3 : !solved[4] ? 4 : !solved[5] ? 5 : 6;
+  const activeTask: TaskNumber = !solved[1] ? 1 : !solved[2] ? 2 : !solved[3] ? 3 : !solved[4] ? 4 : !solved[5] ? 5 : !solved[6] ? 6 : 7;
   const task = tasks[activeTask];
   const currentEvidence = evidenceByTask[activeTask];
-  const isComplete = solved[6];
+  const isComplete = solved[7];
 
   const sync = () => {
     const solvedState = Object.fromEntries(taskNumbers.map((number) => [number, localStorage.getItem(solvedKey(number)) === "true"])) as Record<TaskNumber, boolean>;
@@ -177,7 +198,8 @@ export default function Home() {
     })) as Record<TaskNumber, string[]>;
     setSolved(solvedState);
     setEvidenceByTask(grouped);
-    const savedNotes = JSON.parse(localStorage.getItem("morrowfield:notes") ?? '{"1":[],"2":[],"3":[],"4":[],"5":[],"6":[]}');
+    setArchiveTrust(Number(localStorage.getItem("morrowfield:archive-trust") ?? "0"));
+    const savedNotes = JSON.parse(localStorage.getItem("morrowfield:notes") ?? '{"1":[],"2":[],"3":[],"4":[],"5":[],"6":[],"7":[]}');
     const normalizedNotes = Object.fromEntries(taskNumbers.map((number) => {
       const source = savedNotes[number] ?? [];
       if (typeof source === "string") return [number, source.trim() ? [{ id: `migrated-${number}`, text: source, savedText: source }] : []];
@@ -201,7 +223,7 @@ export default function Home() {
   }, [activeTask]);
 
   const reset = () => {
-    ["morrowfield:evidence", "morrowfield:notes", ...taskNumbers.flatMap((number) => [evidenceKey(number), solvedKey(number)])].forEach((key) => localStorage.removeItem(key));
+    ["morrowfield:evidence", "morrowfield:notes", "morrowfield:archive-trust", ...taskNumbers.flatMap((number) => [evidenceKey(number), solvedKey(number)])].forEach((key) => localStorage.removeItem(key));
     setStarted(false);
     setView("task");
     setBookView("current");
@@ -210,6 +232,7 @@ export default function Home() {
     setAnswers(Array(tasks[1].fields.length).fill(""));
     setFeedback("");
     setNotes(emptyNotes());
+    setArchiveTrust(0);
   };
 
   const addPostIt = () => {
@@ -241,10 +264,20 @@ export default function Home() {
       return;
     }
     const expected = task.evidence.map((slot) => records[slot.id as keyof typeof records].value);
-    const accepted = answers.every((answer, index) => normalize(answer) === normalize(expected[index] ?? ""));
+    const normalizedAnswers = answers.map(normalize);
+    const observedDate = normalizedAnswers[1].includes("september052026") || normalizedAnswers[1].includes("september52026") || normalizedAnswers[1].includes("sep052026") || normalizedAnswers[1].includes("sep52026");
+    const recordedDate = normalizedAnswers[1].includes("september092026") || normalizedAnswers[1].includes("september92026") || normalizedAnswers[1].includes("sep092026") || normalizedAnswers[1].includes("sep92026");
+    const accepted = activeTask === 7
+      ? normalizedAnswers[0].includes("case27041") && (observedDate || recordedDate) && normalizedAnswers[2].includes("participantindex03zip")
+      : answers.every((answer, index) => normalize(answer) === normalize(expected[index] ?? ""));
     if (!accepted) {
       setFeedback("One or more answers do not match the finding saved in your casebook. Enter the casebook value for each question.");
       return;
+    }
+    if (activeTask === 7) {
+      const nextTrust = archiveTrust + (observedDate ? -1 : 1);
+      localStorage.setItem("morrowfield:archive-trust", String(nextTrust));
+      setArchiveTrust(nextTrust);
     }
     localStorage.setItem(solvedKey(activeTask), "true");
     setSolved((current) => ({ ...current, [activeTask]: true }));
@@ -253,7 +286,7 @@ export default function Home() {
   };
 
   const previousTasks = useMemo(() => taskNumbers.filter((number) => solved[number]), [solved]);
-  const recovery = isComplete ? 80 : solved[5] ? 70 : solved[4] ? 58 : solved[3] ? 46 : solved[2] ? 34 : solved[1] ? 24 : 14;
+  const recovery = isComplete ? 88 : solved[6] ? 80 : solved[5] ? 70 : solved[4] ? 58 : solved[3] ? 46 : solved[2] ? 34 : solved[1] ? 24 : 14;
 
   if (!started) return <main className="boot"><section className="boot-card"><div className="seal"><Archive /></div><p className="eyebrow">Bellwether University Archives</p><h1>The Morrowfield Collection</h1><p>Accession review 27-041. Investigate the recovered website, preserve relevant evidence, and complete each accession report.</p><button className="primary" onClick={() => setStarted(true)}>Open case file</button><small>Authorized archival workstation · Case 27-041</small></section></main>;
 
@@ -263,13 +296,13 @@ export default function Home() {
       <nav className="rail" aria-label="Case applications">
         <button className={view === "task" ? "active" : ""} onClick={() => setView("task")}><BookOpen/><span>Task</span></button>
         <button className={view === "website" ? "active" : ""} onClick={() => setView("website")}><FolderOpen/><span>Website</span></button>
-        <button className={view === "casebook" ? "active" : ""} onClick={() => setView("casebook")}><FileSearch/><span>Casebook</span><b>{currentEvidence.length}</b></button>
+        <button className={view === "casebook" ? "active" : ""} onClick={() => setView("casebook")}><FileSearch/><span>{solved[7] && archiveTrust > 0 ? "Recollection" : "Casebook"}</span><b>{currentEvidence.length}</b></button>
         <button className={view === "report" ? "active" : ""} onClick={() => setView("report")}><LockKeyhole/><span>Report</span></button>
       </nav>
       <section className="window">
         <div className="window-title"><span>{view === "task" ? "Current Assignment" : view === "website" ? "Recovered Website" : view === "casebook" ? "Investigation Casebook" : "Accession Report"}</span><i>□ □ ×</i></div>
 
-        {view === "task" && <div className="content task-page"><p className="label">{isComplete ? "Current case status" : task.label}</p><h2>{isComplete ? "All available reports accepted" : task.title}</h2>{isComplete ? <><p>Six investigations have been preserved in the accession record. Your earlier evidence and notes remain available in the casebook.</p><button className="secondary-action" onClick={() => { setBookView("history"); setView("casebook"); }}>Review completed case</button></> : <><p>{task.brief}</p><div className="assignment-card"><div><span>Objective</span><p>{task.required}</p></div><div><span>What you will submit</span><strong>{task.fields.length} written {task.fields.length === 1 ? "answer" : "answers"} supported by {task.evidence.length} relevant {task.evidence.length === 1 ? "record" : "records"}</strong></div></div><div className="next-step"><span>Next</span><p>Search the recovered Project Morrowfield website and build a supported conclusion from what you find.</p><button className="primary" onClick={() => setView("website")}>Go to recovered website</button></div></>}</div>}
+        {view === "task" && <div className="content task-page"><p className="label">{isComplete ? "Current case status" : task.label}</p><h2>{isComplete ? "All available reports accepted" : task.title}</h2>{isComplete ? <><p>Seven investigations have been preserved in the accession record. Your earlier evidence and notes remain available in the casebook.</p><button className="secondary-action" onClick={() => { setBookView("history"); setView("casebook"); }}>Review completed case</button></> : <><p>{task.brief}</p><div className="assignment-card"><div><span>Objective</span><p>{task.required}</p></div><div><span>What you will submit</span><strong>{task.fields.length} written {task.fields.length === 1 ? "answer" : "answers"} supported by {task.evidence.length} relevant {task.evidence.length === 1 ? "record" : "records"}</strong></div></div><div className="next-step"><span>Next</span><p>Search the recovered Project Morrowfield website and build a supported conclusion from what you find.</p><button className="primary" onClick={() => setView("website")}>Go to recovered website</button></div></>}</div>}
 
         {view === "website" && <div className="content external-archive"><p className="label">Investigate</p><h2>Search Project Morrowfield</h2><p>The information needed for your current report is somewhere in the recovered university website. Relevant text and document links can be clicked to preserve them in your casebook.</p><div className="external-file"><FolderOpen/><div><strong>morrowfield.bellwether.edu</strong><span>Recovered snapshot · opens in a separate tab</span></div><a className="primary" href="/archive" target="_blank" rel="noopener" onClick={() => setWebsiteOpened(true)}>Open website <ExternalLink size={16}/></a></div><div className="workflow-help"><BookMarked/><div><strong>Found something useful?</strong><p>Click a relevant fact on the recovered website to preserve it in Current Findings. You can keep your own theories and page references in Personal Notes.</p></div><button className="secondary-action" onClick={() => setView("casebook")}>{websiteOpened ? "Open casebook" : "View casebook"}</button></div></div>}
 
@@ -281,7 +314,7 @@ export default function Home() {
 
         {view === "report" && <div className="content"><p className="label">{task.label}</p><h2>{task.reportTitle}</h2><p>Enter each finding as it appears in your casebook. Capitalization and punctuation do not have to match exactly, but the recorded value should.</p><div className="report-evidence-summary"><span>Evidence recorded</span><strong>{currentEvidence.length}/{task.evidence.length}</strong><button onClick={() => { setBookView("current"); setView("casebook"); }}>Review casebook</button></div><div className="finding-fields">{task.fields.map((field, index) => <label key={field}><span>{field}</span><input value={answers[index] ?? ""} onChange={(event) => updateAnswer(index, event.target.value)} placeholder="Enter the casebook finding" autoComplete="off"/></label>)}</div>{feedback && <p className="feedback">{feedback}</p>}<button className="primary" disabled={isComplete} onClick={submit}>{isComplete ? "Finding accepted" : "Submit report"}</button></div>}
       </section>
-      <aside className="status"><p>Current assignment</p><strong>{String(activeTask).padStart(2, "0")}</strong><span className="status-title">{isComplete ? "Case complete" : task.title}</span><Progress value={(currentEvidence.length / task.evidence.length) * 100}/><dl><div><dt>Evidence</dt><dd>{currentEvidence.length} / {task.evidence.length}</dd></div><div><dt>Report</dt><dd>{solved[activeTask] ? "Accepted" : "Not submitted"}</dd></div><div><dt>Recovery</dt><dd>{recovery}%</dd></div></dl><button className="status-report" onClick={() => setView("report")}>Open report</button></aside>
+      <aside className="status"><p>Current assignment</p><strong>{String(activeTask).padStart(2, "0")}</strong><span className="status-title">{isComplete ? "Case complete" : task.title}</span><Progress value={(currentEvidence.length / task.evidence.length) * 100}/><dl><div><dt>{solved[7] && archiveTrust > 0 ? "Recollection" : "Evidence"}</dt><dd>{currentEvidence.length} / {task.evidence.length}</dd></div><div><dt>Report</dt><dd>{solved[activeTask] ? "Accepted" : "Not submitted"}</dd></div><div><dt>Recovery</dt><dd>{recovery}%</dd></div></dl><button className="status-report" onClick={() => setView("report")}>Open report</button></aside>
     </section>
   </main>;
 }
