@@ -46,9 +46,9 @@ const records = {
   "ethics-safeguard": { title: "Participant safeguard", value: "Suspend exposure if a participant attributes constructed Morrowfield material to personal autobiographical experience.", source: "Ethics Review · Continuation conditions" },
   "incident-threshold": { title: "Incident summary", value: "Four autobiographical-attribution incidents documented.", source: "Internal Memo NB-07" },
   "termination-order": { title: "Suspension authorization", value: "Dr. Miriam Calder · Immediate suspension · October 02, 2003", source: "Internal Memo MC-14" },
-  "current-case": { title: "Current recovery case", value: "Case 27-041", source: "Collection status · recovery ticket" },
+  "current-case": { title: "Linked accession case", value: "Case 27-041", source: "Restored resource reference" },
   "current-access-date": { title: "Restored access date", value: "September 09, 2026", source: "Site administration activity record" },
-  "reopened-export": { title: "Reopened export file", value: "participant-index-03.zip", source: "Study materials · recovery register" },
+  "reopened-export": { title: "Resolved export file", value: "participant-index-03.zip", source: "Restored resource reference" },
 } as const;
 
 const tasks = {
@@ -141,19 +141,19 @@ const tasks = {
   },
   7: {
     label: "Investigation 07",
-    title: "Reconstruct the current archive access",
-    brief: "A recovery ticket now links the active accession case to a restored Morrowfield server event. Establish when the access occurred and which exported record was opened. Preserve anything you do not want to rely on memory for.",
-    required: "Reconstruct the current access by connecting the recovery ticket, server activity record, and restored export reference.",
-    reportTitle: "Document the restored access",
+    title: "Trace accession-session-041",
+    brief: "The automated accession queue recorded the request identifier accession-session-041 while rebuilding the Morrowfield snapshot. The request was written to the website’s server register, but its resource was not indexed. Trace the request to its final record. Preserve anything you do not want to rely on memory for.",
+    required: "Use accession-session-041 to locate the server event, then follow its resource reference to the associated case and exported file.",
+    reportTitle: "Document the unindexed request",
     fields: [
-      "Which accession case is linked to the restored access?",
-      "On what date did the restored access occur?",
-      "Which exported file was opened?",
+      "On what date was accession-session-041 recorded?",
+      "Which accession case does its resource reference identify?",
+      "Which exported file does the reference resolve to?",
     ],
     evidence: [
-      { id: "current-case", hint: "The collection-status page identifies the case attached to the current recovery ticket." },
-      { id: "current-access-date", hint: "Open the newest entry in the server activity register and inspect its recorded date." },
-      { id: "reopened-export", hint: "The study-materials page now includes a recovery-register reference." },
+      { id: "current-access-date", hint: "In Server Records, find the row whose account matches the request identifier in your assignment, then open its date." },
+      { id: "current-case", hint: "The matching activity record names a resource. Open that reference and inspect its accession field." },
+      { id: "reopened-export", hint: "The same resource-reference record identifies the filename it resolves to." },
     ],
   },
 } as const;
@@ -265,10 +265,10 @@ export default function Home() {
     }
     const expected = task.evidence.map((slot) => records[slot.id as keyof typeof records].value);
     const normalizedAnswers = answers.map(normalize);
-    const observedDate = normalizedAnswers[1].includes("september052026") || normalizedAnswers[1].includes("september52026") || normalizedAnswers[1].includes("sep052026") || normalizedAnswers[1].includes("sep52026");
-    const recordedDate = normalizedAnswers[1].includes("september092026") || normalizedAnswers[1].includes("september92026") || normalizedAnswers[1].includes("sep092026") || normalizedAnswers[1].includes("sep92026");
+    const observedDate = normalizedAnswers[0].includes("september052026") || normalizedAnswers[0].includes("september52026") || normalizedAnswers[0].includes("sep052026") || normalizedAnswers[0].includes("sep52026");
+    const recordedDate = normalizedAnswers[0].includes("september092026") || normalizedAnswers[0].includes("september92026") || normalizedAnswers[0].includes("sep092026") || normalizedAnswers[0].includes("sep92026");
     const accepted = activeTask === 7
-      ? normalizedAnswers[0].includes("case27041") && (observedDate || recordedDate) && normalizedAnswers[2].includes("participantindex03zip")
+      ? (observedDate || recordedDate) && normalizedAnswers[1].includes("case27041") && normalizedAnswers[2].includes("participantindex03zip")
       : answers.every((answer, index) => normalize(answer) === normalize(expected[index] ?? ""));
     if (!accepted) {
       setFeedback("One or more answers do not match the finding saved in your casebook. Enter the casebook value for each question.");
@@ -302,7 +302,7 @@ export default function Home() {
       <section className="window">
         <div className="window-title"><span>{view === "task" ? "Current Assignment" : view === "website" ? "Recovered Website" : view === "casebook" ? "Investigation Casebook" : "Accession Report"}</span><i>□ □ ×</i></div>
 
-        {view === "task" && <div className="content task-page"><p className="label">{isComplete ? "Current case status" : task.label}</p><h2>{isComplete ? "All available reports accepted" : task.title}</h2>{isComplete ? <><p>Seven investigations have been preserved in the accession record. Your earlier evidence and notes remain available in the casebook.</p><button className="secondary-action" onClick={() => { setBookView("history"); setView("casebook"); }}>Review completed case</button></> : <><p>{task.brief}</p><div className="assignment-card"><div><span>Objective</span><p>{task.required}</p></div><div><span>What you will submit</span><strong>{task.fields.length} written {task.fields.length === 1 ? "answer" : "answers"} supported by {task.evidence.length} relevant {task.evidence.length === 1 ? "record" : "records"}</strong></div></div><div className="next-step"><span>Next</span><p>Search the recovered Project Morrowfield website and build a supported conclusion from what you find.</p><button className="primary" onClick={() => setView("website")}>Go to recovered website</button></div></>}</div>}
+        {view === "task" && <div className="content task-page"><p className="label">{isComplete ? "Current case status" : task.label}</p><h2>{isComplete ? "All available reports accepted" : task.title}</h2>{isComplete ? <><p>Seven investigations have been preserved in the accession record. Your earlier evidence and notes remain available in the casebook.</p><button className="secondary-action" onClick={() => { setBookView("history"); setView("casebook"); }}>Review completed case</button></> : <><p>{task.brief}</p><div className="assignment-card"><div><span>Objective</span><p>{task.required}</p></div><div><span>What you will submit</span><strong>{task.fields.length} written {task.fields.length === 1 ? "answer" : "answers"} supported by {task.evidence.length} relevant {task.evidence.length === 1 ? "record" : "records"}</strong></div></div><div className="next-step"><span>Next</span><p>{activeTask === 7 ? "Begin in Server Records. Locate the request identifier from the assignment, open its activity record, and follow the resource it names." : "Search the recovered Project Morrowfield website and build a supported conclusion from what you find."}</p><button className="primary" onClick={() => setView("website")}>Go to recovered website</button></div></>}</div>}
 
         {view === "website" && <div className="content external-archive"><p className="label">Investigate</p><h2>Search Project Morrowfield</h2><p>The information needed for your current report is somewhere in the recovered university website. Relevant text and document links can be clicked to preserve them in your casebook.</p><div className="external-file"><FolderOpen/><div><strong>morrowfield.bellwether.edu</strong><span>Recovered snapshot · opens in a separate tab</span></div><a className="primary" href="/archive" target="_blank" rel="noopener" onClick={() => setWebsiteOpened(true)}>Open website <ExternalLink size={16}/></a></div><div className="workflow-help"><BookMarked/><div><strong>Found something useful?</strong><p>Click a relevant fact on the recovered website to preserve it in Current Findings. You can keep your own theories and page references in Personal Notes.</p></div><button className="secondary-action" onClick={() => setView("casebook")}>{websiteOpened ? "Open casebook" : "View casebook"}</button></div></div>}
 
